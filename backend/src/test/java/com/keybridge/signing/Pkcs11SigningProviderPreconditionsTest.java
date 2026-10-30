@@ -10,10 +10,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Checks that run before any PKCS#11 library is touched. Device tests are in Pkcs11SigningProviderIT. */
+/** Checks that run before any PKCS#11 library is touched. Device tests are in Pkcs11SigningProviderSoftHsmTest. */
 class Pkcs11SigningProviderPreconditionsTest {
 
-    private final Pkcs11SigningProvider unconfigured = new Pkcs11SigningProvider(new CryptoService(), "");
+    private final Pkcs11SigningProvider unconfigured = new Pkcs11SigningProvider(new CryptoService(), new Pkcs11Slots(""));
 
     private static Certificate cert(Long slot, String alias) {
         Token t = new Token("HSM-1", "SoftHSM");
@@ -57,7 +57,7 @@ class Pkcs11SigningProviderPreconditionsTest {
 
     @Test
     void missingLibraryFileFailsClearly() {
-        Pkcs11SigningProvider p = new Pkcs11SigningProvider(new CryptoService(), "/nonexistent/libpkcs11.so");
+        Pkcs11SigningProvider p = new Pkcs11SigningProvider(new CryptoService(), new Pkcs11Slots("/nonexistent/libpkcs11.so"));
         CryptoException e = assertThrows(CryptoException.class,
                 () -> p.sign(cert(1L, "k"), new byte[]{1}, new SigningPin("1234")));
         assertTrue(e.getMessage().contains("not found"));

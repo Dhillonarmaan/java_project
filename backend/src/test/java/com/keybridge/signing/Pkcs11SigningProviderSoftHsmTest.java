@@ -106,7 +106,7 @@ class Pkcs11SigningProviderSoftHsmTest {
         return c;
     }
 
-    private final Pkcs11SigningProvider provider = new Pkcs11SigningProvider(crypto, LIBRARY);
+    private final Pkcs11SigningProvider provider = new Pkcs11SigningProvider(crypto, new Pkcs11Slots(LIBRARY));
 
     @Test
     void signsOnDeviceAndSignatureVerifiesWithCertificate() throws Exception {

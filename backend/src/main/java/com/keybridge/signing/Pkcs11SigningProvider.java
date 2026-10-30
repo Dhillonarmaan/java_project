@@ -6,27 +6,14 @@ import com.keybridge.enums.KeyStorageType;
 import com.keybridge.exception.BadRequestException;
 import com.keybridge.exception.CryptoException;
 import com.keybridge.service.CryptoService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.security.auth.login.FailedLoginException;
-import javax.security.auth.login.LoginException;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.AuthProvider;
 import java.security.Key;
 import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
-import java.security.Provider;
-import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.util.HexFormat;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Signs with a private key held on a PKCS#11 device through the JDK's
@@ -40,20 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class Pkcs11SigningProvider implements SigningProvider {
 
-    private static final Logger log = LoggerFactory.getLogger(Pkcs11SigningProvider.class);
-
     private final CryptoService cryptoService;
-    private final String library;
+    private final Pkcs11Slots slots;
 
-    /** One SunPKCS11 instance per slot; a device session is shared, so each slot is used by one thread at a time. */
-    private final Map<Long, Provider> providers = new ConcurrentHashMap<>();
-
-    public Pkcs11SigningProvider(
-            CryptoService cryptoService,
-            @Value("${keybridge.pkcs11.library:}") String library
-    ) {
+    public Pkcs11SigningProvider(CryptoService cryptoService, Pkcs11Slots slots) {
         this.cryptoService = cryptoService;
-        this.library = library == null ? "" : library.trim();
+        this.slots = slots;
     }
 
     @Override
@@ -74,53 +53,14 @@ public class Pkcs11SigningProvider implements SigningProvider {
             throw new BadRequestException("PIN is required to sign with this token");
         }
 
-        Provider provider = providerFor(token.getPkcs11Slot());
-        synchronized (provider) {
-            try {
-                KeyStore ks = login(provider, pin);
-                checkCertificateMatches(ks, cert);
-
-                Key key = ks.getKey(cert.getKeyAlias(), null);
-                if (!(key instanceof PrivateKey privateKey)) {
-                    throw new BadRequestException("Private key '" + cert.getKeyAlias() + "' not found on token");
-                }
-                return cryptoService.sign(data, privateKey, provider);
-            } catch (BadRequestException | CryptoException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new CryptoException("PKCS#11 signing failed", e);
-            } finally {
-                logout(provider);
+        return slots.withLogin(token.getPkcs11Slot(), pin, "PKCS#11 signing failed", (provider, ks) -> {
+            checkCertificateMatches(ks, cert);
+            Key key = ks.getKey(cert.getKeyAlias(), null);
+            if (!(key instanceof PrivateKey privateKey)) {
+                throw new BadRequestException("Private key '" + cert.getKeyAlias() + "' not found on token");
             }
-        }
-    }
-
-    private KeyStore login(Provider provider, SigningPin pin) throws Exception {
-        KeyStore ks = KeyStore.getInstance("PKCS11", provider);
-        try {
-            ks.load(null, pin.chars());
-            return ks;
-        } catch (IOException e) {
-            // SunPKCS11 wraps login errors: IOException -> UnrecoverableKeyException -> FailedLoginException.
-            if (findCause(e, FailedLoginException.class) != null) {
-                throw new BadRequestException("Invalid PIN");
-            }
-            LoginException login = findCause(e, LoginException.class);
-            if (login != null) {
-                // e.g. PIN locked or expired; the message comes from the device, not from the PIN.
-                throw new BadRequestException("Token login failed: " + login.getMessage());
-            }
-            throw e;
-        }
-    }
-
-    private static <T extends Throwable> T findCause(Throwable t, Class<T> type) {
-        for (Throwable c = t; c != null && c.getCause() != c; c = c.getCause()) {
-            if (type.isInstance(c)) {
-                return type.cast(c);
-            }
-        }
-        return null;
+            return cryptoService.sign(data, privateKey, provider);
+        });
     }
 
     private static void checkCertificateMatches(KeyStore ks, Certificate cert) throws Exception {
@@ -132,41 +72,6 @@ public class Pkcs11SigningProvider implements SigningProvider {
                 MessageDigest.getInstance("SHA-256").digest(x509.getEncoded()));
         if (!fingerprint.equalsIgnoreCase(cert.getSha256Fingerprint())) {
             throw new CryptoException("Key on token does not belong to certificate " + cert.getId());
-        }
-    }
-
-    private static void logout(Provider provider) {
-        try {
-            ((AuthProvider) provider).logout();
-        } catch (LoginException e) {
-            log.debug("PKCS#11 logout failed: {}", e.getMessage());
-        }
-    }
-
-    private Provider providerFor(long slot) {
-        if (library.isEmpty()) {
-            throw new CryptoException("PKCS#11 signing is not configured (set PKCS11_LIBRARY)");
-        }
-        return providers.computeIfAbsent(slot, this::createProvider);
-    }
-
-    private Provider createProvider(long slot) {
-        if (!Files.isRegularFile(Path.of(library))) {
-            throw new CryptoException("PKCS#11 library not found: " + library);
-        }
-        String config = "--name=KeyBridge-slot-" + slot + "\n"
-                + "library=" + library + "\n"
-                + "slot=" + slot + "\n";
-        try {
-            Provider base = Security.getProvider("SunPKCS11");
-            if (base == null) {
-                throw new CryptoException("SunPKCS11 provider is not available in this JDK");
-            }
-            return base.configure(config);
-        } catch (CryptoException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new CryptoException("Cannot open PKCS#11 slot " + slot, e);
         }
     }
 }
