@@ -71,19 +71,28 @@ public class TestCaService {
         log.info("KeyBridge Test Root CA successfully created.");
     }
 
+    /** Generates a software key pair, issues a certificate for it and saves both to a new user-<uuid>.p12. */
     public IssuedCert issue(String commonName, String email, int validDays) throws Exception {
+        KeyPair kp = newKeyPair();
+        X509Certificate cert = issueFor(kp.getPublic(), commonName, email, validDays);
+
+        String file = "user-" + UUID.randomUUID() + ".p12";
+        saveP12(Path.of(dir, file), "user", kp.getPrivate(), new Certificate[]{cert, rootCert()});
+        return new IssuedCert(cert, file);
+    }
+
+    /**
+     * Issues a user certificate for a public key whose private key lives
+     * elsewhere (e.g. on a PKCS#11 device). Nothing is written to disk.
+     */
+    public X509Certificate issueFor(PublicKey publicKey, String commonName, String email, int validDays) throws Exception {
         KeyStore rootKs = load(rootPath());
         PrivateKey rootKey = (PrivateKey) rootKs.getKey(rootAlias, ksPass.toCharArray());
         X509Certificate root = (X509Certificate) rootKs.getCertificate(rootAlias);
 
-        KeyPair kp = newKeyPair();
         X500Name subject = new X500Name("CN=" + commonName + ", E=" + email + ", O=KeyBridge Users");
         X500Name issuer = new org.bouncycastle.cert.jcajce.JcaX509CertificateHolder(root).getSubject();
-        X509Certificate cert = build(issuer, subject, kp.getPublic(), rootKey, validDays, false);
-
-        String file = "user-" + UUID.randomUUID() + ".p12";
-        saveP12(Path.of(dir, file), "user", kp.getPrivate(), new Certificate[]{cert, root});
-        return new IssuedCert(cert, file);
+        return build(issuer, subject, publicKey, rootKey, validDays, false);
     }
 
     public X509Certificate rootCert() throws Exception {

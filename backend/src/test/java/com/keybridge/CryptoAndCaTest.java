@@ -74,4 +74,19 @@ class CryptoAndCaTest {
         assertEquals(64, meta.fingerprint().length());
         assertTrue(meta.subject().contains("Bob Smith"));
     }
+
+    @Test
+    void issuesCertificateForExternalPublicKeyWithoutWritingKeystore() throws Exception {
+        KeyPairGenerator g = KeyPairGenerator.getInstance("RSA");
+        g.initialize(2048);
+        KeyPair external = g.generateKeyPair();
+        long filesBefore = java.nio.file.Files.list(tempDir).count();
+
+        X509Certificate cert = testCaService.issueFor(external.getPublic(), "Carol HSM", "carol@example.com", 10);
+
+        assertEquals(external.getPublic(), cert.getPublicKey());
+        assertDoesNotThrow(() -> cert.verify(testCaService.rootCert().getPublicKey()));
+        assertTrue(cert.getSubjectX500Principal().getName().contains("Carol HSM"));
+        assertEquals(filesBefore, java.nio.file.Files.list(tempDir).count());
+    }
 }
