@@ -39,7 +39,16 @@ export default function Certificates() {
   const [country, setCountry] = useState('US');
   const [validityDays, setValidityDays] = useState(365);
   const [tokenId, setTokenId] = useState('');
+  const [tokenPin, setTokenPin] = useState('');
   const [issueSubmitting, setIssueSubmitting] = useState(false);
+
+  const selectedToken = tokens.find((t) => String(t.id) === String(tokenId));
+
+  const closeIssueModal = () => {
+    setTokenPin('');
+    setIssueModalOpen(false);
+  };
+  const onPkcs11Token = selectedToken?.keyStorage === 'PKCS11';
 
   // Revoke Form State
   const [revokeReason, setRevokeReason] = useState('KEY_COMPROMISE');
@@ -87,6 +96,9 @@ export default function Certificates() {
         country,
         validityDays: parseInt(validityDays, 10),
         tokenId: tokenId ? parseInt(tokenId, 10) : null,
+        // A certificate on an assigned token belongs to the token holder.
+        userId: selectedToken?.ownerId ?? null,
+        pin: onPkcs11Token ? tokenPin : null,
       });
       toast.success(`Certificate for "${commonName}" successfully issued by KeyBridge Root CA!`);
       setIssueModalOpen(false);
@@ -95,6 +107,7 @@ export default function Certificates() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to issue certificate');
     } finally {
+      setTokenPin('');
       setIssueSubmitting(false);
     }
   };
@@ -329,7 +342,7 @@ export default function Certificates() {
       {/* ISSUE TEST CERTIFICATE MODAL */}
       <Modal
         isOpen={issueModalOpen}
-        onClose={() => setIssueModalOpen(false)}
+        onClose={closeIssueModal}
         title="Issue New Test Certificate"
         maxWidth="max-w-lg"
       >
@@ -400,19 +413,48 @@ export default function Certificates() {
                 <option value="">None (Soft Keystore)</option>
                 {tokens.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.serialNo || t.serialNumber} {t.label ? `(${t.label})` : ''}
+                    {t.serialNo} {t.label ? `(${t.label})` : ''}
+                    {t.keyStorage === 'PKCS11' ? ` - PKCS#11 slot ${t.pkcs11Slot}` : ''}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
+          {selectedToken?.ownerId && (
+            <p className="text-xs text-slate-400">
+              Certificate owner: <span className="font-semibold text-slate-200">{selectedToken.ownerName || selectedToken.ownerEmail}</span> (token holder)
+            </p>
+          )}
+
+          {onPkcs11Token && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                Token PIN *
+              </label>
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                value={tokenPin}
+                onChange={(e) => setTokenPin(e.target.value)}
+                placeholder="PIN of the PKCS#11 token"
+                className="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Used once to create the key on the token. Never stored or logged.
+              </span>
+            </div>
+          )}
+
           <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300">
-            KeyBridge Test CA will generate an RSA-2048 keypair, sign the certificate with SHA-256 with RSA, and secure the private key inside password-protected `.p12` storage.
+            {onPkcs11Token
+              ? 'The token generates an RSA-2048 key pair on the device; the private key is non-extractable and never leaves it. KeyBridge Test CA signs the certificate, which is stored on the token next to the key.'
+              : 'KeyBridge Test CA will generate an RSA-2048 keypair, sign the certificate with SHA-256 with RSA, and secure the private key inside password-protected `.p12` storage.'}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-            <Button variant="ghost" onClick={() => setIssueModalOpen(false)}>
+            <Button variant="ghost" onClick={closeIssueModal}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" loading={issueSubmitting}>

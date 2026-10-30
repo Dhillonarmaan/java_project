@@ -21,6 +21,8 @@ export default function Tokens() {
   // Create Form State
   const [serialNumber, setSerialNumber] = useState('');
   const [model, setModel] = useState('YubiKey 5 NFC');
+  const [keyStorage, setKeyStorage] = useState('SOFT_P12');
+  const [pkcs11Slot, setPkcs11Slot] = useState('');
   const [createSubmitting, setCreateSubmitting] = useState(false);
 
   // Assign Form State
@@ -58,10 +60,17 @@ export default function Tokens() {
     }
     setCreateSubmitting(true);
     try {
-      await api.post('/tokens', { serialNo: serialNumber, label: model });
+      await api.post('/tokens', {
+        serialNo: serialNumber,
+        label: model,
+        keyStorage,
+        pkcs11Slot: keyStorage === 'PKCS11' ? parseInt(pkcs11Slot, 10) : null,
+      });
       toast.success(`Token ${serialNumber} enrolled successfully!`);
       setCreateModalOpen(false);
       setSerialNumber('');
+      setKeyStorage('SOFT_P12');
+      setPkcs11Slot('');
       fetchTokensAndUsers();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to enroll token');
@@ -149,6 +158,12 @@ export default function Tokens() {
               {/* Assignment details */}
               <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/60 mb-4 text-xs space-y-1">
                 <div className="flex justify-between">
+                  <span className="text-slate-500">Key Storage:</span>
+                  <span className="font-mono text-indigo-400">
+                    {token.keyStorage === 'PKCS11' ? `PKCS#11 (slot ${token.pkcs11Slot})` : 'Software .p12'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-slate-500">Assigned Operator:</span>
                   <span className="font-semibold text-slate-200">
                     {token.ownerName || token.ownerEmail || 'Unassigned (In Pool)'}
@@ -234,7 +249,40 @@ export default function Tokens() {
               <option value="Nitrokey Pro 2">Nitrokey Pro 2</option>
               <option value="Thales SafeNet eToken 5110">Thales SafeNet eToken 5110</option>
               <option value="PKCS#12 Software Keystore">PKCS#12 Software Keystore</option>
+              <option value="SoftHSM">SoftHSM</option>
             </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                Key Storage
+              </label>
+              <select
+                value={keyStorage}
+                onChange={(e) => setKeyStorage(e.target.value)}
+                className="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-indigo-500/80"
+              >
+                <option value="SOFT_P12">Software .p12</option>
+                <option value="PKCS11">PKCS#11 device</option>
+              </select>
+            </div>
+            {keyStorage === 'PKCS11' && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  PKCS#11 Slot *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={pkcs11Slot}
+                  onChange={(e) => setPkcs11Slot(e.target.value)}
+                  placeholder="e.g. 1438461264"
+                  className="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 font-mono"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
