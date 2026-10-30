@@ -26,10 +26,8 @@ cd backend && sh mvnw spring-boot:run
 
 # Frontend on :5173, proxies /api to :8080
 cd frontend && npm install && npm run dev
-npx vite build       # production build
+npm run build        # production build (vite build)
 ```
-
-`npm run build` (`tsc && vite build`) currently fails: `tsc` finds no `.ts` inputs because the app is `.jsx`. Use `npx vite build` until the script is fixed.
 
 `mvnw` is not executable in git (committed from Windows); invoke it as `sh mvnw` rather than changing its mode.
 
