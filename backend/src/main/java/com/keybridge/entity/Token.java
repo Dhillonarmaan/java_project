@@ -1,5 +1,6 @@
 package com.keybridge.entity;
 
+import com.keybridge.enums.KeyStorageType;
 import com.keybridge.enums.TokenStatus;
 import jakarta.persistence.*;
 
@@ -29,6 +30,15 @@ public class Token {
 
     @Column(name = "assigned_date")
     private LocalDate assignedDate;
+
+    /** Where this token's private keys live. Null (rows created before this column) means SOFT_P12. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "key_storage", length = 20)
+    private KeyStorageType keyStorage;
+
+    /** PKCS#11 slot ID of the device; only set when keyStorage is PKCS11. */
+    @Column(name = "pkcs11_slot")
+    private Long pkcs11Slot;
 
     public Token() {
     }
@@ -85,5 +95,26 @@ public class Token {
 
     public void setAssignedDate(LocalDate assignedDate) {
         this.assignedDate = assignedDate;
+    }
+
+    public KeyStorageType getKeyStorage() {
+        return keyStorage;
+    }
+
+    /** Storage type with the pre-column default applied. */
+    public KeyStorageType effectiveKeyStorage() {
+        return keyStorage != null ? keyStorage : KeyStorageType.SOFT_P12;
+    }
+
+    public void setKeyStorage(KeyStorageType keyStorage) {
+        this.keyStorage = keyStorage;
+    }
+
+    public Long getPkcs11Slot() {
+        return pkcs11Slot;
+    }
+
+    public void setPkcs11Slot(Long pkcs11Slot) {
+        this.pkcs11Slot = pkcs11Slot;
     }
 }

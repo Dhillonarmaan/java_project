@@ -4,6 +4,7 @@ import com.keybridge.dto.token.CreateTokenRequest;
 import com.keybridge.dto.token.TokenResponse;
 import com.keybridge.entity.Token;
 import com.keybridge.entity.User;
+import com.keybridge.enums.KeyStorageType;
 import com.keybridge.enums.Role;
 import com.keybridge.enums.TokenStatus;
 import com.keybridge.exception.BadRequestException;
@@ -52,7 +53,17 @@ public class TokenService {
             throw new BadRequestException("Token with serial number " + serial + " already exists");
         }
 
+        KeyStorageType storage = req.keyStorage() != null ? req.keyStorage() : KeyStorageType.SOFT_P12;
+        if (storage == KeyStorageType.PKCS11 && req.pkcs11Slot() == null) {
+            throw new BadRequestException("pkcs11Slot is required for a PKCS11 token");
+        }
+        if (storage != KeyStorageType.PKCS11 && req.pkcs11Slot() != null) {
+            throw new BadRequestException("pkcs11Slot is only allowed for a PKCS11 token");
+        }
+
         Token token = new Token(serial, req.label() != null ? req.label().trim() : null);
+        token.setKeyStorage(storage);
+        token.setPkcs11Slot(req.pkcs11Slot());
         tokenRepository.save(token);
         return TokenResponse.fromEntity(token);
     }

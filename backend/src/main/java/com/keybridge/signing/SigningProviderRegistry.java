@@ -32,8 +32,11 @@ public class SigningProviderRegistry {
         return p;
     }
 
-    /** Every certificate is a .p12 for now; token-based selection is added with Token.keyStorage. */
-    static KeyStorageType storageOf(Certificate cert) {
-        return KeyStorageType.SOFT_P12;
+    /**
+     * The token decides where the key lives. Certificates without a token
+     * (everything issued before PKCS#11 support) are .p12.
+     */
+    public static KeyStorageType storageOf(Certificate cert) {
+        return cert.getToken() == null ? KeyStorageType.SOFT_P12 : cert.getToken().effectiveKeyStorage();
     }
 }

@@ -1,6 +1,7 @@
 package com.keybridge.dto.token;
 
 import com.keybridge.entity.Token;
+import com.keybridge.enums.KeyStorageType;
 import com.keybridge.enums.TokenStatus;
 
 import java.time.LocalDate;
@@ -13,7 +14,8 @@ public record TokenResponse(
     String ownerName,
     String ownerEmail,
     TokenStatus status,
-    LocalDate assignedDate
+    LocalDate assignedDate,
+    KeyStorageType keyStorage
 ) {
     public static TokenResponse fromEntity(Token token) {
         if (token == null) return null;
@@ -25,7 +27,8 @@ public record TokenResponse(
             token.getOwner() != null ? token.getOwner().getName() : null,
             token.getOwner() != null ? token.getOwner().getEmail() : null,
             token.getStatus(),
-            token.getAssignedDate()
+            token.getAssignedDate(),
+            token.effectiveKeyStorage()
         );
     }
 }

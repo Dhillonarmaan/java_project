@@ -49,6 +49,10 @@ public class Certificate {
     @Column(name = "keystore_file", length = 200)
     private String keystoreFile;
 
+    /** Label of the private key on a PKCS#11 token; null for .p12 certificates. */
+    @Column(name = "key_alias", length = 100)
+    private String keyAlias;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private CertStatus status = CertStatus.VALID;
@@ -172,5 +176,13 @@ public class Certificate {
 
     public void setRevokeReason(String revokeReason) {
         this.revokeReason = revokeReason;
+    }
+
+    public String getKeyAlias() {
+        return keyAlias;
+    }
+
+    public void setKeyAlias(String keyAlias) {
+        this.keyAlias = keyAlias;
     }
 }
