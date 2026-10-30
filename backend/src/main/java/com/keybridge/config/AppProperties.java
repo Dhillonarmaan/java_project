@@ -36,7 +36,7 @@ public class AppProperties {
     }
 
     public static class Jwt {
-        private String secret = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
+        private String secret;
         private long expiryMinutes = 120;
 
         public String getSecret() {
@@ -58,7 +58,7 @@ public class AppProperties {
 
     public static class Keystore {
         private String dir = "./keystore-data";
-        private String password = "changeit";
+        private String password;
         private String rootAlias = "keybridge-root";
 
         public String getDir() {

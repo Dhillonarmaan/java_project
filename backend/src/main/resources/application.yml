@@ -2,10 +2,13 @@ server:
   port: 8080
 
 spring:
+  config:
+    # Load local secrets from backend/.env when present (never committed).
+    import: optional:file:.env[.properties]
   datasource:
     url: jdbc:mysql://localhost:3306/keybridge?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: ${DB_PASSWORD:Iamhere_123}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -22,11 +25,11 @@ spring:
 
 keybridge:
   jwt:
-    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    secret: ${JWT_SECRET}
     expiry-minutes: 120
   keystore:
     dir: ${KEYSTORE_DIR:./keystore-data}
-    password: ${KS_PASSWORD:changeit}
+    password: ${KS_PASSWORD}
     root-alias: keybridge-root
   expiry:
     warn-days: 30

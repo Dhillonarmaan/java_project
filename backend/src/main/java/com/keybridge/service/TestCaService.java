@@ -43,7 +43,7 @@ public class TestCaService {
 
     public TestCaService(
             @Value("${keybridge.keystore.dir:./keystore-data}") String dir,
-            @Value("${keybridge.keystore.password:changeit}") String ksPass,
+            @Value("${keybridge.keystore.password}") String ksPass,
             @Value("${keybridge.keystore.root-alias:keybridge-root}") String rootAlias
     ) {
         this.dir = dir;

@@ -39,7 +39,7 @@ public class SigningService {
             CryptoService cryptoService,
             TestCaService testCaService,
             @Value("${keybridge.keystore.dir:./keystore-data}") String dir,
-            @Value("${keybridge.keystore.password:changeit}") String ksPass
+            @Value("${keybridge.keystore.password}") String ksPass
     ) {
         this.certificateRepository = certificateRepository;
         this.signedDocumentRepository = signedDocumentRepository;

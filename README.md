@@ -42,7 +42,7 @@ KeyBridge is a production-ready enterprise security platform designed for strict
 
 1. **Zero Private Keys in Database:**
    - As per ISO/IEC 27001 and FIPS guidelines, private keys are **never** stored in database tables or logs.
-   - Private keys are stored strictly in password-protected PKCS#12 (`.p12`) keystores inside `keystore-data/`, which is excluded from Git tracking via `.gitignore`.
+   - Private keys are stored strictly in password-protected PKCS#12 (`.p12`) keystores inside `keystore-data/`, which is excluded from Git tracking via the root `.gitignore`.
 2. **Cryptographic Standards:**
    - **Digest Algorithm:** SHA-256 (`FIPS 180-4`)
    - **Digital Signature Scheme:** RSA 2048-bit with PKCS#1 v1.5 padding (`SHA256withRSA`)
@@ -80,6 +80,23 @@ On initial startup, `DataSeeder` seeds the system with pre-configured users and 
 - **Java:** Eclipse Adoptium OpenJDK 25 LTS or Java 17+
 - **Database:** MySQL 8.0 running on `localhost:3306` with database `keybridge`
 - **Node.js:** v18+ or v22+
+
+### Configuration (secrets)
+Secrets are not stored in `application.yml`. Create `backend/.env` from the example and fill in real values:
+```bash
+cd backend
+cp .env.example .env
+openssl rand -hex 32   # use the output as JWT_SECRET
+```
+| Variable | Required | Purpose |
+| :--- | :--- | :--- |
+| `DB_USERNAME` | No (default `root`) | MySQL user |
+| `DB_PASSWORD` | Yes | MySQL password |
+| `JWT_SECRET` | Yes | HMAC-SHA256 JWT signing key (32+ characters) |
+| `KS_PASSWORD` | Yes | Password protecting the `.p12` keystores |
+| `KEYSTORE_DIR` | No (default `./keystore-data`) | Keystore directory |
+
+`backend/.env` is git-ignored and loaded automatically when the backend is started from `backend/`. Real environment variables override it. If you change `KS_PASSWORD`, delete `backend/keystore-data/` and reset the database so the keystores and certificate records are regenerated together.
 
 ### Backend Startup
 ```powershell
