@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.keybridge.CryptoAndCaTest
--------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.200 s -- in com.keybridge.CryptoAndCaTest
