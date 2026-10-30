@@ -70,7 +70,7 @@ On initial startup, `DataSeeder` seeds the system with pre-configured users and 
 | **USER** | `user@keybridge.com` | `User@123` | Request certs/tokens, sign documents, verify signatures, submit requests |
 | **AUDITOR** | `auditor@keybridge.com` | `Audit@123` | Read-only access to security audit trails and verification logs |
 
-*Default PKCS#12 Keystore PIN for seeded tokens & certificates:* `KeyBridge@123`
+Keys in `.p12` files are unlocked by the server with `KS_PASSWORD`, so signing with them needs no PIN. Keys on a PKCS#11 token need the user's token PIN for each signature; it is never stored.
 
 ---
 
@@ -95,8 +95,16 @@ openssl rand -hex 32   # use the output as JWT_SECRET
 | `JWT_SECRET` | Yes | HMAC-SHA256 JWT signing key (32+ characters) |
 | `KS_PASSWORD` | Yes | Password protecting the `.p12` keystores |
 | `KEYSTORE_DIR` | No (default `./keystore-data`) | Keystore directory |
+| `PKCS11_LIBRARY` | No | PKCS#11 module for tokens with `keyStorage=PKCS11` (e.g. SoftHSM: `/opt/homebrew/lib/softhsm/libsofthsm2.so`). Empty disables PKCS#11 signing |
 
 `backend/.env` is git-ignored and loaded automatically when the backend is started from `backend/`. Real environment variables override it. If you change `KS_PASSWORD`, delete `backend/keystore-data/` and reset the database so the keystores and certificate records are regenerated together.
+
+### Signing providers
+Each token has a key storage type, set when an admin creates it (`POST /api/tokens` with `keyStorage` and, for PKCS#11, `pkcs11Slot`):
+- `SOFT_P12` (default): key in a `.p12` file in `keystore-data/`.
+- `PKCS11`: key on a PKCS#11 device reached through the JDK's SunPKCS11 provider. The user enters the token PIN on the Sign page.
+
+Signing currently happens on the server, so a PKCS#11 device must be attached to the server. A local signing agent on the user's machine is the planned replacement. To run the PKCS#11 tests against SoftHSM, see `CLAUDE.md` → Tests.
 
 ### Backend Startup
 ```powershell
@@ -123,7 +131,7 @@ npm run dev
 1. Log in as `admin@keybridge.com`.
 2. Navigate to **Certificates** &rarr; click **Issue Test Certificate**.
 3. Fill in Common Name (e.g., `Alice Smith`), choose validity days, and click **Issue Certificate**.
-4. Navigate to **Sign Document** &rarr; select Alice's certificate &rarr; drag-and-drop a document (e.g., `.txt` or `.pdf`) &rarr; enter PIN `KeyBridge@123` &rarr; click **Execute Digital Signature**.
+4. Navigate to **Sign Document** &rarr; select Alice's certificate &rarr; drag-and-drop a document (e.g., `.txt` or `.pdf`) &rarr; click **Execute Digital Signature**.
 5. Watch the 4-step pipeline execute, then download the generated `.sig` signature file.
 
 ### Scenario 2: Test 1-Byte Tamper Detection

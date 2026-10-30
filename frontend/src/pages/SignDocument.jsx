@@ -22,7 +22,8 @@ export default function SignDocument() {
   const [certs, setCerts] = useState([]);
   const [selectedCertId, setSelectedCertId] = useState('');
   const [file, setFile] = useState(null);
-  const [keystorePassword, setKeystorePassword] = useState('KeyBridge@123');
+  // PKCS#11 token PIN: typed per request, sent once, never stored. .p12 keys don't need one.
+  const [pin, setPin] = useState('');
   const [history, setHistory] = useState([]);
 
   // Pipeline execution state
@@ -30,6 +31,9 @@ export default function SignDocument() {
   const [pipelineStep, setPipelineStep] = useState(1);
   const [signComplete, setSignComplete] = useState(false);
   const [signResult, setSignResult] = useState(null);
+
+  const selectedCert = certs.find((c) => String(c.id) === String(selectedCertId));
+  const needsPin = selectedCert?.keyStorage === 'PKCS11';
 
   const fetchCertsAndHistory = async () => {
     try {
@@ -83,9 +87,10 @@ export default function SignDocument() {
     formData.append('file', file);
     formData.append('certificateId', selectedCertId);
     formData.append('certId', selectedCertId);
-    if (keystorePassword) {
-      formData.append('keystorePassword', keystorePassword);
+    if (needsPin) {
+      formData.append('pin', pin);
     }
+    setPin(''); // don't keep the PIN in page state after this request
 
     try {
       const res = await api.post('/sign', formData);
@@ -234,33 +239,36 @@ export default function SignDocument() {
                 />
               </div>
 
-              {/* Step 3: Keystore PIN */}
+              {/* Step 3: token PIN, only for keys on a PKCS#11 device */}
+              {needsPin && (
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                  3. Token / Keystore Access PIN
+                  3. Token PIN
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="password"
                     required
-                    value={keystorePassword}
-                    onChange={(e) => setKeystorePassword(e.target.value)}
-                    placeholder="Enter PKCS#12 password"
+                    autoComplete="off"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="Enter your token PIN"
                     className="w-full pl-10 pr-4 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-indigo-500/80"
                   />
                 </div>
                 <span className="text-[10px] text-slate-500 mt-1 block">
-                  Default test password for seeded tokens: <code className="text-indigo-400">KeyBridge@123</code>
+                  Unlocks the key on your hardware token for this signature only. It is not stored.
                 </span>
               </div>
+              )}
 
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
                 icon={FileSignature}
-                disabled={!file || !selectedCertId}
+                disabled={!file || !selectedCertId || (needsPin && !pin)}
                 className="w-full"
               >
                 Execute Digital Signature

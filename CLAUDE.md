@@ -10,6 +10,7 @@ KeyBridge: a PKI / digital-signature platform. Spring Boot 3.3 backend (Java 17,
 - **Private keys never go in the database**, in logs, or in API responses. The DB stores only public certificate data and the keystore *file name* (`certificates.keystore_file`).
 - **Never commit `.env` or key material** (`*.p12`, `*.jks`, `*.key`, `backend/keystore-data/`). These are ignored by the root `.gitignore`; check `git status` before committing.
 - Controllers return Java `record` DTOs from `dto/`, never JPA entities.
+- **PINs are never stored or logged.** Take them as `SigningPin` (redacted `toString()`, zeroed with `close()`), never as a plain `String`.
 
 ## Running locally
 
@@ -25,8 +26,10 @@ cd backend && sh mvnw spring-boot:run
 
 # Frontend on :5173, proxies /api to :8080
 cd frontend && npm install && npm run dev
-npm run build        # tsc && vite build
+npx vite build       # production build
 ```
+
+`npm run build` (`tsc && vite build`) currently fails: `tsc` finds no `.ts` inputs because the app is `.jsx`. Use `npx vite build` until the script is fixed.
 
 `mvnw` is not executable in git (committed from Windows); invoke it as `sh mvnw` rather than changing its mode.
 
@@ -38,6 +41,18 @@ sh mvnw test                                               # all tests
 sh mvnw test -Dtest=AuthTest                               # one class
 sh mvnw test -Dtest=AuthTest#shortSecretFailsInsteadOfBeingPadded   # one method
 ```
+
+PKCS#11 tests run against a throwaway SoftHSM token (`brew install softhsm`) and are skipped unless `-Dkeybridge.pkcs11.slot` is set:
+
+```bash
+cd backend
+sh scripts/softhsm-init.sh     # creates a token under target/softhsm and prints the exact test command
+SOFTHSM2_CONF=$PWD/target/softhsm/softhsm2.conf sh mvnw test \
+  -Dkeybridge.pkcs11.library=/opt/homebrew/lib/softhsm/libsofthsm2.so \
+  -Dkeybridge.pkcs11.slot=<slot printed by the script> -Dkeybridge.pkcs11.pin=123456
+```
+
+Re-run the script after `mvn clean` (it deletes `target/softhsm`); the slot number changes each time.
 
 Tests are plain JUnit 5 + Mockito: no Spring context, no database. Services are constructed directly (e.g. `new TestCaService(tempDir.toString(), "changeit", "keybridge-root")` with a `@TempDir`), so tests don't need `.env` or MySQL. There is no frontend test suite or linter.
 
@@ -52,16 +67,24 @@ Secrets are not in `application.yml`. Copy `backend/.env.example` to `backend/.e
 | `JWT_SECRET` | yes | ≥ 32 bytes or startup fails (`JwtService`). `openssl rand -hex 32` |
 | `KS_PASSWORD` | yes | Protects every `.p12` keystore |
 | `KEYSTORE_DIR` | no (default `./keystore-data`) | Relative to the working directory, i.e. `backend/keystore-data/` |
+| `PKCS11_LIBRARY` | no | PKCS#11 module path (e.g. `/opt/homebrew/lib/softhsm/libsofthsm2.so`). Empty disables PKCS#11 signing |
 
 Changing `KS_PASSWORD` makes existing `.p12` files unreadable. Keystores and the DB must be reset together: delete `backend/keystore-data/*.p12` **and** recreate the MySQL database/container, since `certificates.keystore_file` rows point at those files. Schema is managed by Hibernate `ddl-auto: update` (no migrations); `DataSeeder` seeds users and tokens only when the `users` table is empty.
 
 ## Architecture notes
 
-**Key storage and signing.** `TestCaService` creates the root CA (`root-ca.p12`, alias `keybridge-root`) in `@PostConstruct` if missing, and issues user certs into `user-<uuid>.p12` (alias `user`, chain = user + root). All keystores use the single server-wide `KS_PASSWORD`. `SigningService.sign` checks ownership (owner or ADMIN) and status (not REVOKED/EXPIRED), loads the `.p12` named by `Certificate.keystoreFile` via `TestCaService.load`, and signs with `CryptoService` (SHA256withRSA). The frontend Sign page sends a `keystorePassword` form field, but `SignController` has no such parameter and ignores it.
+**Signing is server-side for now.** The backend holds or reaches every private key and signs on the user's behalf; a PKCS#11 device must be attached to the server, not the user's machine. The intended future fix is a local signing agent on the user's machine that talks to their own token, so keys and PINs never reach the server. Keep that in mind: don't design new features that assume the server can always sign.
+
+**Key storage and signing.** `SigningService.sign` checks ownership (owner or ADMIN) and status (not REVOKED/EXPIRED), then delegates to a `SigningProvider` (`signing/`) chosen by `SigningProviderRegistry` from the certificate's token: `Token.keyStorage` (`SOFT_P12` or `PKCS11`; null and certificates without a token mean `SOFT_P12`).
+- `P12SigningProvider`: loads `keystore-data/<Certificate.keystoreFile>` (alias `user`) with the server-wide `KS_PASSWORD`. Ignores the PIN.
+- `Pkcs11SigningProvider`: one SunPKCS11 instance per `Token.pkcs11Slot`, key found by `Certificate.keyAlias` (CKA_LABEL). Logs in with the request's PIN, checks that the certificate on the device matches `sha256Fingerprint`, signs with that provider, and logs out. Wrong PIN → 400 "Invalid PIN".
+- `POST /api/sign` takes an optional `pin` form field (only for PKCS#11 certs; the UI shows it only when `CertResponse.keyStorage == PKCS11`).
+
+`TestCaService` creates the root CA (`root-ca.p12`, alias `keybridge-root`) in `@PostConstruct` if missing, and issues user certs into `user-<uuid>.p12` (chain = user + root). Issuing certs with keys generated on a PKCS#11 token is not implemented yet; today PKCS#11 keys come from external tooling or the SoftHSM test setup.
 
 **Verification** (`VerificationService`) is a strict ordered pipeline that stops at the first failure: parse → chain (`cert.verify(rootPublicKey)`) → revocation (DB lookup by SHA-256 fingerprint) → validity dates → signature. Each attempt is written to `verification_logs`. Results are the 7 `VerifyResult` values.
 
-**Auditing.** Methods annotated `@Audited("ACTION")` (on controllers) are intercepted by `AuditAspect` (`@AfterReturning`), and `AuditService.record` writes each argument's `toString()` into `audit_logs.details`. It only skips strings containing `"password"` or `"@"` or ≥ 120 chars. Never pass a PIN or secret as a plain `String` argument to an `@Audited` method; it will be stored.
+**Auditing.** Methods annotated `@Audited("ACTION")` (on controllers) are intercepted by `AuditAspect` (`@AfterReturning`), and `AuditService.record` writes each argument's `toString()` into `audit_logs.details`. It skips `SigningPin`, `char[]`, `byte[]`, `MultipartFile` and `Key` arguments by type, then any string containing `"password"` or `"@"` or ≥ 120 chars. Any other `String` argument to an `@Audited` method is stored, so secrets must use one of the skipped types.
 
 **Auth / RBAC.** Stateless JWT (`JwtAuthFilter` → `JwtService`); only `/api/auth/**` is public. Roles ADMIN / USER / AUDITOR are enforced with `@PreAuthorize` on controllers, and per-user data scoping (USER sees only own certs, tokens, documents, requests) is done in services: controllers resolve the caller with `AuthService.getCurrentUserEntity()` and pass the `User` in, and services branch on `Role.USER`.
 
