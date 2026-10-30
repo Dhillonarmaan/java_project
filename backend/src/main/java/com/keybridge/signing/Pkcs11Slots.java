@@ -116,9 +116,15 @@ public class Pkcs11Slots {
         if (!Files.isRegularFile(Path.of(library))) {
             throw new CryptoException("PKCS#11 library not found: " + library);
         }
+        // Private keys generated through this provider are sensitive and
+        // non-extractable, so they can sign but never be exported.
         String config = "--name=KeyBridge-slot-" + slot + "\n"
                 + "library=" + library + "\n"
-                + "slot=" + slot + "\n";
+                + "slot=" + slot + "\n"
+                + "attributes(generate, CKO_PRIVATE_KEY, *) = {\n"
+                + "  CKA_SENSITIVE = true\n"
+                + "  CKA_EXTRACTABLE = false\n"
+                + "}\n";
         try {
             Provider base = Security.getProvider("SunPKCS11");
             if (base == null) {

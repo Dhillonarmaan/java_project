@@ -15,7 +15,8 @@ public record TokenResponse(
     String ownerEmail,
     TokenStatus status,
     LocalDate assignedDate,
-    KeyStorageType keyStorage
+    KeyStorageType keyStorage,
+    Long pkcs11Slot
 ) {
     public static TokenResponse fromEntity(Token token) {
         if (token == null) return null;
@@ -28,7 +29,8 @@ public record TokenResponse(
             token.getOwner() != null ? token.getOwner().getEmail() : null,
             token.getStatus(),
             token.getAssignedDate(),
-            token.effectiveKeyStorage()
+            token.effectiveKeyStorage(),
+            token.getPkcs11Slot()
         );
     }
 }

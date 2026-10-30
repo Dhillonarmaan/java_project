@@ -36,7 +36,7 @@ class ServiceRequestStateMachineTest {
         requestRepository = mock(ServiceRequestRepository.class);
         certificateRepository = mock(CertificateRepository.class);
         tokenRepository = mock(TokenRepository.class);
-        certificateService = new CertificateService(certificateRepository, null, tokenRepository, null, null);
+        certificateService = new CertificateService(certificateRepository, null, tokenRepository, null, null, null);
 
         serviceRequestService = new ServiceRequestService(
                 requestRepository,
