@@ -284,7 +284,7 @@ export default function Requests() {
                 <option value="">-- Choose Token --</option>
                 {tokens.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.serialNumber} ({t.model}) - {t.status}
+                    {t.serialNo} ({t.label}) - {t.status}
                   </option>
                 ))}
               </select>

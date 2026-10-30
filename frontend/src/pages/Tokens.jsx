@@ -58,7 +58,7 @@ export default function Tokens() {
     }
     setCreateSubmitting(true);
     try {
-      await api.post('/tokens', { serialNumber, model });
+      await api.post('/tokens', { serialNo: serialNumber, label: model });
       toast.success(`Token ${serialNumber} enrolled successfully!`);
       setCreateModalOpen(false);
       setSerialNumber('');
@@ -78,7 +78,7 @@ export default function Tokens() {
       await api.put(`/tokens/${selectedToken.id}/assign`, {
         userId: parseInt(assignedUserId, 10),
       });
-      toast.success(`Token ${selectedToken.serialNumber} assigned to user`);
+      toast.success(`Token ${selectedToken.serialNo} assigned to user`);
       setAssignModalOpen(false);
       setSelectedToken(null);
       fetchTokensAndUsers();
@@ -139,8 +139,8 @@ export default function Tokens() {
                     <KeyRound className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-100 font-mono">{token.serialNumber}</h4>
-                    <p className="text-xs text-slate-400">{token.model}</p>
+                    <h4 className="text-sm font-bold text-slate-100 font-mono">{token.serialNo}</h4>
+                    <p className="text-xs text-slate-400">{token.label}</p>
                   </div>
                 </div>
                 <StatusBadge status={token.status} size="sm" />
@@ -151,13 +151,7 @@ export default function Tokens() {
                 <div className="flex justify-between">
                   <span className="text-slate-500">Assigned Operator:</span>
                   <span className="font-semibold text-slate-200">
-                    {token.assignedUserFullName || token.assignedUserEmail || 'Unassigned (In Pool)'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Bound Certificates:</span>
-                  <span className="font-mono text-indigo-400">
-                    {token.boundCertificatesCount || 0} active
+                    {token.ownerName || token.ownerEmail || 'Unassigned (In Pool)'}
                   </span>
                 </div>
               </div>
@@ -193,7 +187,7 @@ export default function Tokens() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleStatusChange(token.id, 'ACTIVE')}
+                    onClick={() => handleStatusChange(token.id, token.ownerId ? 'ASSIGNED' : 'AVAILABLE')}
                     className="text-emerald-400 hover:text-emerald-300"
                   >
                     Reactivate
@@ -258,7 +252,7 @@ export default function Tokens() {
       <Modal
         isOpen={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        title={`Assign Token ${selectedToken?.serialNumber}`}
+        title={`Assign Token ${selectedToken?.serialNo}`}
         maxWidth="max-w-md"
       >
         <form onSubmit={handleAssignSubmit} className="space-y-4">
@@ -275,7 +269,7 @@ export default function Tokens() {
               <option value="">-- Choose Operator --</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.fullName || u.username} ({u.email}) - {u.role}
+                  {u.name} ({u.email}) - {u.role}
                 </option>
               ))}
             </select>
