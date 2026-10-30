@@ -50,7 +50,7 @@ SOFTHSM2_CONF=$PWD/target/softhsm/softhsm2.conf sh mvnw test \
   -Dkeybridge.pkcs11.slot=<slot printed by the script> -Dkeybridge.pkcs11.pin=123456
 ```
 
-Re-run the script after `mvn clean` (it deletes `target/softhsm`); the slot number changes each time.
+Re-run the script after `mvn clean` (it deletes `target/softhsm`); the slot number changes each time. The check that issued keys are sensitive and never extractable reads device attributes with OpenSC's `pkcs11-tool` (`brew install opensc`) and is skipped without it.
 
 Tests are plain JUnit 5 + Mockito: no Spring context, no database. Services are constructed directly (e.g. `new TestCaService(tempDir.toString(), "changeit", "keybridge-root")` with a `@TempDir`), so tests don't need `.env` or MySQL. There is no frontend test suite or linter.
 
@@ -65,7 +65,7 @@ Secrets are not in `application.yml`. Copy `backend/.env.example` to `backend/.e
 | `JWT_SECRET` | yes | ≥ 32 bytes or startup fails (`JwtService`). `openssl rand -hex 32` |
 | `KS_PASSWORD` | yes | Protects every `.p12` keystore |
 | `KEYSTORE_DIR` | no (default `./keystore-data`) | Relative to the working directory, i.e. `backend/keystore-data/` |
-| `PKCS11_LIBRARY` | no | PKCS#11 module path (e.g. `/opt/homebrew/lib/softhsm/libsofthsm2.so`). Empty disables PKCS#11 signing |
+| `PKCS11_LIBRARY` | no | PKCS#11 module path (e.g. `/opt/homebrew/lib/softhsm/libsofthsm2.so`). Empty disables PKCS#11 signing and issuing |
 
 Changing `KS_PASSWORD` makes existing `.p12` files unreadable. Keystores and the DB must be reset together: delete `backend/keystore-data/*.p12` **and** recreate the MySQL database/container, since `certificates.keystore_file` rows point at those files. Schema is managed by Hibernate `ddl-auto: update` (no migrations); `DataSeeder` seeds users and tokens only when the `users` table is empty.
 
@@ -75,10 +75,13 @@ Changing `KS_PASSWORD` makes existing `.p12` files unreadable. Keystores and the
 
 **Key storage and signing.** `SigningService.sign` checks ownership (owner or ADMIN) and status (not REVOKED/EXPIRED), then delegates to a `SigningProvider` (`signing/`) chosen by `SigningProviderRegistry` from the certificate's token: `Token.keyStorage` (`SOFT_P12` or `PKCS11`; null and certificates without a token mean `SOFT_P12`).
 - `P12SigningProvider`: loads `keystore-data/<Certificate.keystoreFile>` (alias `user`) with the server-wide `KS_PASSWORD`. Ignores the PIN.
-- `Pkcs11SigningProvider`: one SunPKCS11 instance per `Token.pkcs11Slot`, key found by `Certificate.keyAlias` (CKA_LABEL). Logs in with the request's PIN, checks that the certificate on the device matches `sha256Fingerprint`, signs with that provider, and logs out. Wrong PIN → 400 "Invalid PIN".
+- `Pkcs11SigningProvider`: key found by `Certificate.keyAlias` (SunPKCS11 stores it as the certificate's CKA_LABEL and the key's CKA_ID). Checks that the certificate on the device matches `sha256Fingerprint`, then signs on the device.
+- `Pkcs11Slots` is shared by signing and issuing: one SunPKCS11 instance per `Token.pkcs11Slot`, one request per slot at a time, login with the request's PIN and always logout. Wrong PIN → 400 "Invalid PIN". Its provider config makes generated private keys sensitive and non-extractable.
 - `POST /api/sign` takes an optional `pin` form field (only for PKCS#11 certs; the UI shows it only when `CertResponse.keyStorage == PKCS11`).
 
-`TestCaService` creates the root CA (`root-ca.p12`, alias `keybridge-root`) in `@PostConstruct` if missing, and issues user certs into `user-<uuid>.p12` (chain = user + root). Issuing certs with keys generated on a PKCS#11 token is not implemented yet; today PKCS#11 keys come from external tooling or the SoftHSM test setup.
+`TestCaService` creates the root CA (`root-ca.p12`, alias `keybridge-root`) in `@PostConstruct` if missing, and issues user certs into `user-<uuid>.p12` (chain = user + root). `issueFor(PublicKey, ...)` issues for a key generated elsewhere.
+
+**Issuing onto a PKCS#11 token.** `CertificateService.issueTestCertificate` with a `PKCS11` token takes the token PIN from `IssueCertRequest.pin` (a `SigningPin`, so the audited request shows it redacted) and calls `Pkcs11Enroller`: generate the key pair on the device, have the test CA sign it, store key + chain under a generated alias `kb-<uuid>`, then save the record (`keyAlias` set, `keystoreFile` null). If the save fails, the entry is deleted from the device. The token must have a slot, must not be LOST/RETIRED, and if assigned must belong to the certificate's owner.
 
 **Verification** (`VerificationService`) is a strict ordered pipeline that stops at the first failure: parse → chain (`cert.verify(rootPublicKey)`) → revocation (DB lookup by SHA-256 fingerprint) → validity dates → signature. Each attempt is written to `verification_logs`. Results are the 7 `VerifyResult` values.
 
