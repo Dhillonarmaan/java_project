@@ -101,15 +101,26 @@ public class Pkcs11SigningProvider implements SigningProvider {
             ks.load(null, pin.chars());
             return ks;
         } catch (IOException e) {
-            if (e.getCause() instanceof FailedLoginException) {
+            // SunPKCS11 wraps login errors: IOException -> UnrecoverableKeyException -> FailedLoginException.
+            if (findCause(e, FailedLoginException.class) != null) {
                 throw new BadRequestException("Invalid PIN");
             }
-            if (e.getCause() instanceof LoginException) {
+            LoginException login = findCause(e, LoginException.class);
+            if (login != null) {
                 // e.g. PIN locked or expired; the message comes from the device, not from the PIN.
-                throw new BadRequestException("Token login failed: " + e.getCause().getMessage());
+                throw new BadRequestException("Token login failed: " + login.getMessage());
             }
             throw e;
         }
+    }
+
+    private static <T extends Throwable> T findCause(Throwable t, Class<T> type) {
+        for (Throwable c = t; c != null && c.getCause() != c; c = c.getCause()) {
+            if (type.isInstance(c)) {
+                return type.cast(c);
+            }
+        }
+        return null;
     }
 
     private static void checkCertificateMatches(KeyStore ks, Certificate cert) throws Exception {
