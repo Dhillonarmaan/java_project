@@ -5,6 +5,7 @@ import com.keybridge.entity.AuditLog;
 import com.keybridge.entity.User;
 import com.keybridge.repository.AuditLogRepository;
 import com.keybridge.repository.UserRepository;
+import com.keybridge.signing.SigningPin;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 
@@ -52,25 +54,45 @@ public class AuditService {
                 ip = (xForwarded != null && !xForwarded.isBlank()) ? xForwarded.split(",")[0].trim() : req.getRemoteAddr();
             }
 
-            StringBuilder details = new StringBuilder();
-            if (args != null && args.length > 0) {
-                for (int i = 0; i < args.length; i++) {
-                    Object arg = args[i];
-                    if (arg != null) {
-                        String str = arg.toString();
-                        if (!str.toLowerCase().contains("password") && !str.contains("@") && str.length() < 120) {
-                            if (details.length() > 0) details.append(", ");
-                            details.append(str);
-                        }
-                    }
-                }
-            }
+            String details = describeArgs(args);
 
-            AuditLog logEntry = new AuditLog(userId, action, details.length() > 0 ? details.toString() : "Action performed", ip);
+            AuditLog logEntry = new AuditLog(userId, action, details.isEmpty() ? "Action performed" : details, ip);
             auditLogRepository.save(logEntry);
         } catch (Exception e) {
             log.warn("Failed to write audit log for action {}: {}", action, e.getMessage());
         }
+    }
+
+    /**
+     * Builds audit_logs.details from method arguments. Secrets and raw
+     * content are skipped by type, so a PIN, key or document can never be
+     * stored even if its toString() changes. The string checks below are a
+     * second line of defence for plain String arguments.
+     */
+    static String describeArgs(Object[] args) {
+        StringBuilder details = new StringBuilder();
+        if (args == null) {
+            return "";
+        }
+        for (Object arg : args) {
+            if (arg == null || isSensitive(arg)) {
+                continue;
+            }
+            String str = arg.toString();
+            if (!str.toLowerCase().contains("password") && !str.contains("@") && str.length() < 120) {
+                if (details.length() > 0) details.append(", ");
+                details.append(str);
+            }
+        }
+        return details.toString();
+    }
+
+    private static boolean isSensitive(Object arg) {
+        return arg instanceof SigningPin
+                || arg instanceof char[]
+                || arg instanceof byte[]
+                || arg instanceof MultipartFile
+                || arg instanceof java.security.Key;
     }
 
     @Transactional
