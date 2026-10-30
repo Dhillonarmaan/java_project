@@ -12,14 +12,11 @@ import com.keybridge.exception.ForbiddenException;
 import com.keybridge.exception.NotFoundException;
 import com.keybridge.repository.CertificateRepository;
 import com.keybridge.repository.SignedDocumentRepository;
-import org.springframework.beans.factory.annotation.Value;
+import com.keybridge.signing.SigningProviderRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Path;
-import java.security.KeyStore;
-import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.List;
 
@@ -29,24 +26,18 @@ public class SigningService {
     private final CertificateRepository certificateRepository;
     private final SignedDocumentRepository signedDocumentRepository;
     private final CryptoService cryptoService;
-    private final TestCaService testCaService;
-    private final String dir;
-    private final String ksPass;
+    private final SigningProviderRegistry signingProviders;
 
     public SigningService(
             CertificateRepository certificateRepository,
             SignedDocumentRepository signedDocumentRepository,
             CryptoService cryptoService,
-            TestCaService testCaService,
-            @Value("${keybridge.keystore.dir:./keystore-data}") String dir,
-            @Value("${keybridge.keystore.password}") String ksPass
+            SigningProviderRegistry signingProviders
     ) {
         this.certificateRepository = certificateRepository;
         this.signedDocumentRepository = signedDocumentRepository;
         this.cryptoService = cryptoService;
-        this.testCaService = testCaService;
-        this.dir = dir;
-        this.ksPass = ksPass;
+        this.signingProviders = signingProviders;
     }
 
     @Transactional
@@ -66,19 +57,8 @@ public class SigningService {
             throw new BadRequestException("Certificate is " + cert.getStatus());
         }
 
-        if (cert.getKeystoreFile() == null) {
-            throw new BadRequestException("No private key available for this certificate");
-        }
-
         byte[] data = file.getBytes();
-        KeyStore ks = testCaService.load(Path.of(dir, cert.getKeystoreFile()));
-        PrivateKey key = (PrivateKey) ks.getKey("user", ksPass.toCharArray());
-
-        if (key == null) {
-            throw new BadRequestException("Private key alias 'user' not found in keystore");
-        }
-
-        byte[] sig = cryptoService.sign(data, key);
+        byte[] sig = signingProviders.forCertificate(cert).sign(cert, data, null);
         SignedDocument d = new SignedDocument();
         d.setUser(current);
         d.setCert(cert);
