@@ -15,6 +15,8 @@ import java.util.Date;
 @Service
 public class JwtService {
 
+    static final int MIN_SECRET_BYTES = 32;
+
     private final SecretKey key;
     private final long expiryMs;
 
@@ -22,14 +24,16 @@ public class JwtService {
             @Value("${keybridge.jwt.secret}") String secret,
             @Value("${keybridge.jwt.expiry-minutes}") long mins
     ) {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
-            this.key = Keys.hmacShaKeyFor(padded);
-        } else {
-            this.key = Keys.hmacShaKeyFor(keyBytes);
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET is not set");
         }
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < MIN_SECRET_BYTES) {
+            // HS256 needs a 256-bit key; never pad a weak secret.
+            throw new IllegalStateException("JWT_SECRET must be at least " + MIN_SECRET_BYTES
+                    + " bytes, got " + keyBytes.length + ". Generate one with: openssl rand -hex 32");
+        }
+        this.key = Keys.hmacShaKeyFor(keyBytes);
         this.expiryMs = mins * 60_000;
     }
 

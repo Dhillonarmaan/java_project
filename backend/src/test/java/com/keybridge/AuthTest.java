@@ -33,4 +33,35 @@ class AuthTest {
     void testInvalidToken() {
         assertFalse(jwtService.validate("invalid.token.string"));
     }
+
+    @Test
+    void shortSecretFailsInsteadOfBeingPadded() {
+        String shortSecret = "a".repeat(31);
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> new JwtService(shortSecret, 120));
+        assertTrue(e.getMessage().contains("at least 32 bytes"));
+        assertFalse(e.getMessage().contains(shortSecret), "secret must not be logged");
+    }
+
+    @Test
+    void missingSecretFails() {
+        assertThrows(IllegalStateException.class, () -> new JwtService(null, 120));
+        assertThrows(IllegalStateException.class, () -> new JwtService("   ", 120));
+    }
+
+    @Test
+    void secretOfExactly32BytesIsAccepted() {
+        JwtService service = new JwtService("b".repeat(32), 120);
+        User user = new User("Bob", "bob@example.com", "hash", Role.USER);
+        user.setId(11L);
+        assertTrue(service.validate(service.generate(user)));
+    }
+
+    @Test
+    void tokenSignedWithDifferentSecretIsRejected() {
+        User user = new User("Carol", "carol@example.com", "hash", Role.USER);
+        user.setId(12L);
+        String token = new JwtService("c".repeat(32), 120).generate(user);
+        assertFalse(jwtService.validate(token));
+    }
 }
