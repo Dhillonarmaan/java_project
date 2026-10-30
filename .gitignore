@@ -1,0 +1,30 @@
+# Build output
+backend/target/
+target/
+node_modules/
+dist/
+dist-ssr/
+
+# Editors / OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# Local environment files (secrets) - keep only the documented example
+.env
+.env.*
+!.env.example
+
+# Cryptographic material - private keys must never be committed
+backend/keystore-data/
+keystore-data/*
+!keystore-data/.gitignore
+*.p12
+*.jks
+*.key
+
+# Installers / logs
+*.msi
+*.exe
+*.log

@@ -22,36 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Frontend generated files
-node_modules/
-dist/
-dist-ssr/
-
-# Java build output
-backend/target/
-
-# JDK installers
-*.msi
-*.exe
-
-# Local cryptographic keystores and private keys
-backend/keystore-data/
-*.p12
-*.jks
-*.key
-
-# Local environment files
-.env
-.env.*
-!.env.example
-
-# Large JDK installers
-*.msi
-*.exe
-
-# Java build output and local keystores
-backend/target/
-backend/keystore-data/
-*.p12
-*.jks
