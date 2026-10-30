@@ -12,6 +12,7 @@ import com.keybridge.exception.ForbiddenException;
 import com.keybridge.exception.NotFoundException;
 import com.keybridge.repository.CertificateRepository;
 import com.keybridge.repository.SignedDocumentRepository;
+import com.keybridge.signing.SigningPin;
 import com.keybridge.signing.SigningProviderRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +42,7 @@ public class SigningService {
     }
 
     @Transactional
-    public SignResponse sign(Long certId, MultipartFile file, User current) throws Exception {
+    public SignResponse sign(Long certId, MultipartFile file, User current, SigningPin pin) throws Exception {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("File to sign cannot be empty");
         }
@@ -58,7 +59,14 @@ public class SigningService {
         }
 
         byte[] data = file.getBytes();
-        byte[] sig = signingProviders.forCertificate(cert).sign(cert, data, null);
+        byte[] sig;
+        try {
+            sig = signingProviders.forCertificate(cert).sign(cert, data, pin);
+        } finally {
+            if (pin != null) {
+                pin.close();
+            }
+        }
         SignedDocument d = new SignedDocument();
         d.setUser(current);
         d.setCert(cert);

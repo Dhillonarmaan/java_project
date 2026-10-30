@@ -19,8 +19,18 @@ public class CryptoService {
     }
 
     public byte[] sign(byte[] data, PrivateKey key) {
+        return sign(data, key, null);
+    }
+
+    /**
+     * Signs with an explicit JCA provider. Needed for keys that live on a
+     * PKCS#11 device, which only that device's provider can use.
+     */
+    public byte[] sign(byte[] data, PrivateKey key, Provider provider) {
         try {
-            Signature signature = Signature.getInstance("SHA256withRSA");
+            Signature signature = provider == null
+                    ? Signature.getInstance("SHA256withRSA")
+                    : Signature.getInstance("SHA256withRSA", provider);
             signature.initSign(key);
             signature.update(data);
             return signature.sign();

@@ -31,6 +31,9 @@ keybridge:
     dir: ${KEYSTORE_DIR:./keystore-data}
     password: ${KS_PASSWORD}
     root-alias: keybridge-root
+  pkcs11:
+    # Path to the PKCS#11 module (e.g. SoftHSM). Empty disables PKCS#11 signing.
+    library: ${PKCS11_LIBRARY:}
   expiry:
     warn-days: 30
     cron: "0 0 1 * * *"

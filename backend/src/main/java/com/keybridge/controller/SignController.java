@@ -7,6 +7,7 @@ import com.keybridge.entity.User;
 import com.keybridge.exception.BadRequestException;
 import com.keybridge.service.AuthService;
 import com.keybridge.service.SigningService;
+import com.keybridge.signing.SigningPin;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,7 +32,9 @@ public class SignController {
             @RequestParam(value = "certId", required = false) Long certId,
             @RequestParam(value = "certificateId", required = false) Long certificateId,
             @RequestParam(value = "file", required = false) MultipartFile file,
-            @RequestParam(value = "document", required = false) MultipartFile document
+            @RequestParam(value = "document", required = false) MultipartFile document,
+            // Only PKCS#11 tokens use it. Never logged: SigningPin redacts itself and AuditService skips it.
+            @RequestParam(value = "pin", required = false) SigningPin pin
     ) throws Exception {
         Long targetCertId = (certId != null) ? certId : certificateId;
         if (targetCertId == null) {
@@ -44,7 +47,7 @@ public class SignController {
         }
 
         User currentUser = authService.getCurrentUserEntity();
-        return ResponseEntity.ok(signingService.sign(targetCertId, targetFile, currentUser));
+        return ResponseEntity.ok(signingService.sign(targetCertId, targetFile, currentUser, pin));
     }
 
     @GetMapping("/signed-documents")
