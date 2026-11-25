@@ -91,7 +91,7 @@ Changing `KS_PASSWORD` makes existing `.p12` files unreadable. Keystores and the
 
 **Service requests.** `ServiceRequestService` is a state machine `PENDING → APPROVED → COMPLETED`, or `PENDING → REJECTED`. Illegal transitions throw `InvalidStateTransitionException` (HTTP 409). Transition to `COMPLETED` performs the side effect (renew/revoke cert, assign/lose token) in the same transaction.
 
-**Expiry.** `ExpiryMonitorService` runs on `keybridge.expiry.cron` (daily 01:00) and via `POST /api/certs/refresh-status`; `warn-days: 30` drives VALID → EXPIRING → EXPIRED. REVOKED is never changed.
+**Expiry.** `ExpiryMonitorService` runs on `keybridge.expiry.cron` (daily 01:00) and via `POST /api/certs/refresh-status`; `warn-days: 30` drives VALID → EXPIRING → EXPIRED. REVOKED and EXPIRED are never changed (renewal retires the old certificate as EXPIRED before its end date).
 
 **Errors.** Throw the exceptions in `exception/` (`NotFoundException` 404, `BadRequestException` 400, `ForbiddenException` 403, `InvalidStateTransitionException` 409); `GlobalExceptionHandler` maps them to `{timestamp, status, error, message}`.
 

@@ -65,4 +65,16 @@ class ExpiryMonitorServiceTest {
 
         verify(certificateRepository, times(1)).saveAll(any());
     }
+
+    @Test
+    void certificateRetiredByRenewalStaysExpired() {
+        Certificate renewed = new Certificate();
+        renewed.setId(4L);
+        renewed.setStatus(CertStatus.EXPIRED);
+        renewed.setValidTo(LocalDateTime.now().plusDays(10));
+        when(certificateRepository.findByStatusNot(CertStatus.REVOKED)).thenReturn(List.of(renewed));
+
+        assertEquals(0, expiryMonitorService.refreshStatuses());
+        assertEquals(CertStatus.EXPIRED, renewed.getStatus());
+    }
 }

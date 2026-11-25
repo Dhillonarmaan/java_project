@@ -38,6 +38,11 @@ public class ExpiryMonitorService {
 
         int updatedCount = 0;
         for (Certificate c : certs) {
+            // EXPIRED is final: a renewal retires the old certificate as EXPIRED before its end date,
+            // and recomputing from dates would make it usable for signing again.
+            if (c.getStatus() == CertStatus.EXPIRED) {
+                continue;
+            }
             CertStatus targetStatus;
             if (c.getValidTo().isBefore(now)) {
                 targetStatus = CertStatus.EXPIRED;
