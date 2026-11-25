@@ -33,8 +33,13 @@ export default function SignDocument() {
   const [signComplete, setSignComplete] = useState(false);
   const [signResult, setSignResult] = useState(null);
 
+  // PDFs can carry the signature inside the file instead of a separate .sig.
+  const [embedInPdf, setEmbedInPdf] = useState(true);
+
   const selectedCert = certs.find((c) => String(c.id) === String(selectedCertId));
   const needsPin = selectedCert?.keyStorage === 'PKCS11';
+  const isPdf = !!file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name));
+  const signingPdf = isPdf && embedInPdf;
 
   const fetchCertsAndHistory = async () => {
     try {
@@ -86,26 +91,62 @@ export default function SignDocument() {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('certificateId', selectedCertId);
     formData.append('certId', selectedCertId);
+    if (!signingPdf) {
+      formData.append('certificateId', selectedCertId);
+    }
     if (needsPin) {
       formData.append('pin', pin);
     }
     setPin(''); // don't keep the PIN in page state after this request
 
     try {
-      const res = await api.post('/sign', formData);
+      if (signingPdf) {
+        const res = await api.post('/sign/pdf', formData, { responseType: 'blob' });
+        setSignResult({ pdfBlob: res.data, pdfName: `${file.name.replace(/\.pdf$/i, '')}-signed.pdf` });
+      } else {
+        const res = await api.post('/sign', formData);
+        setSignResult(res.data);
+      }
 
       setPipelineStep(4);
-      setSignResult(res.data);
       setSignComplete(true);
-      toast.success('Digital signature successfully generated with RSA-2048 & SHA-256!');
+      toast.success(
+        signingPdf
+          ? 'PDF signed: the signature is embedded in the document'
+          : 'Digital signature successfully generated with RSA-2048 & SHA-256!'
+      );
       fetchCertsAndHistory();
     } catch (err) {
       setIsSigning(false);
       setPipelineStep(1);
-      toast.error(err.response?.data?.message || 'Digital signature generation failed');
+      toast.error((await errorMessage(err)) || 'Digital signature generation failed');
     }
+  };
+
+  // Blob requests return their JSON error body as a Blob.
+  const errorMessage = async (err) => {
+    const data = err.response?.data;
+    if (data instanceof Blob) {
+      try {
+        return JSON.parse(await data.text()).message;
+      } catch {
+        return null;
+      }
+    }
+    return data?.message;
+  };
+
+  const downloadSignedPdf = () => {
+    const url = window.URL.createObjectURL(signResult.pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', signResult.pdfName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${signResult.pdfName}`);
   };
 
   const downloadSignatureFile = () => {
@@ -238,6 +279,17 @@ export default function SignDocument() {
                   maxSizeMb={10}
                   helperText="Upload any PDF, XML, JSON, or text file to generate digital signature"
                 />
+                {isPdf && (
+                  <label className="flex items-center gap-2 mt-2 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={embedInPdf}
+                      onChange={(e) => setEmbedInPdf(e.target.checked)}
+                      className="accent-indigo-500"
+                    />
+                    Embed the signature in the PDF (download a signed PDF instead of a .sig file)
+                  </label>
+                )}
               </div>
 
               {/* Step 3: token PIN, only for keys on a PKCS#11 device */}
@@ -302,24 +354,32 @@ export default function SignDocument() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-                    <span className="text-[10px] uppercase font-semibold text-slate-500 block mb-1">
-                      Base64 Signature Output
-                    </span>
-                    <p className="font-mono text-xs text-indigo-300 break-all max-h-24 overflow-y-auto">
-                      {signResult?.signatureB64 || signResult?.signatureBase64}
-                    </p>
-                  </div>
+                  {signResult?.pdfBlob ? (
+                    <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-xs text-slate-300">
+                      <span className="font-mono text-indigo-300">{signResult.pdfName}</span> carries an embedded CMS
+                      signature and the signer's certificate chain. Verify it on the Verify page (Signed PDF), or open
+                      it in a PDF reader's signature panel.
+                    </div>
+                  ) : (
+                    <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block mb-1">
+                        Base64 Signature Output
+                      </span>
+                      <p className="font-mono text-xs text-indigo-300 break-all max-h-24 overflow-y-auto">
+                        {signResult?.signatureB64 || signResult?.signatureBase64}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-3 pt-2">
                     <Button
                       variant="success"
                       size="md"
                       icon={Download}
-                      onClick={downloadSignatureFile}
+                      onClick={signResult?.pdfBlob ? downloadSignedPdf : downloadSignatureFile}
                       className="flex-1"
                     >
-                      Download .sig File
+                      {signResult?.pdfBlob ? 'Download Signed PDF' : 'Download .sig File'}
                     </Button>
                     <Button
                       variant="secondary"

@@ -28,6 +28,8 @@ export default function VerifyDocument() {
   const [existingCerts, setExistingCerts] = useState([]);
   const [selectedCertId, setSelectedCertId] = useState('');
   const [useExistingCert, setUseExistingCert] = useState(true);
+  // 'detached': document + .sig + certificate. 'pdf': a PDF that carries its own signature and certificate.
+  const [mode, setMode] = useState('detached');
 
   // Tamper demo state
   const [isTampered, setIsTampered] = useState(false);
@@ -45,16 +47,17 @@ export default function VerifyDocument() {
 
   const loadPrerequisites = async () => {
     try {
-      const [certRes, histRes] = await Promise.all([
+      // Verification logs are ADMIN/AUDITOR only; a USER still needs the certificate list.
+      const [certRes, histRes] = await Promise.allSettled([
         api.get('/certs'),
         api.get('/verifications'),
       ]);
-      const certList = certRes.data || [];
+      const certList = certRes.status === 'fulfilled' ? certRes.value.data || [] : [];
       setExistingCerts(certList);
       if (certList.length > 0 && !selectedCertId) {
         setSelectedCertId(certList[0].id);
       }
-      setHistory(histRes.data || []);
+      setHistory(histRes.status === 'fulfilled' ? histRes.value.data || [] : []);
     } catch (err) {
       console.error('Failed to load verification prerequisites', err);
     }
@@ -67,18 +70,12 @@ export default function VerifyDocument() {
     }
 
     if (!isTampered) {
-      // Modify 1 byte in the file
-      const reader = new FileReader();
-      reader.onload = () => {
-        const text = reader.result;
-        setOriginalFileContent(docFile);
-        const tamperedBlob = new Blob([text + ' [TAMPERED_BYTE_MODIFICATION]'], { type: docFile.type });
-        const tamperedFile = new File([tamperedBlob], docFile.name, { type: docFile.type });
-        setDocFile(tamperedFile);
-        setIsTampered(true);
-        toast.warning('Document payload altered! 1 byte flipped to test tamper detection.');
-      };
-      reader.readAsText(docFile);
+      // Append bytes to the file as-is (re-reading it as text would corrupt binary files such as PDFs)
+      setOriginalFileContent(docFile);
+      const tamperedFile = new File([docFile, ' [TAMPERED_BYTE_MODIFICATION]'], docFile.name, { type: docFile.type });
+      setDocFile(tamperedFile);
+      setIsTampered(true);
+      toast.warning('Document payload altered: bytes appended to test tamper detection.');
     } else {
       if (originalFileContent) {
         setDocFile(originalFileContent);
@@ -94,7 +91,7 @@ export default function VerifyDocument() {
       toast.error('Please select or upload the document');
       return;
     }
-    if (!sigFile) {
+    if (mode === 'detached' && !sigFile) {
       toast.error('Please select or upload the .sig signature file');
       return;
     }
@@ -110,10 +107,16 @@ export default function VerifyDocument() {
     setTimeout(() => setActiveStepIndex(4), 1200);
 
     const formData = new FormData();
-    formData.append('document', docFile);
-    formData.append('signature', sigFile);
+    if (mode === 'pdf') {
+      formData.append('file', docFile);
+    } else {
+      formData.append('document', docFile);
+      formData.append('signature', sigFile);
+    }
 
-    if (useExistingCert && selectedCertId) {
+    if (mode === 'pdf') {
+      // The signer certificate is read from the PDF signature.
+    } else if (useExistingCert && selectedCertId) {
       formData.append('certificateId', selectedCertId);
     } else if (certFile) {
       formData.append('certificate', certFile);
@@ -125,7 +128,7 @@ export default function VerifyDocument() {
     }
 
     try {
-      const res = await api.post('/verify', formData);
+      const res = await api.post(mode === 'pdf' ? '/verify/pdf' : '/verify', formData);
 
       setActiveStepIndex(5);
       setVerifyResult(res.data);
@@ -197,10 +200,31 @@ export default function VerifyDocument() {
         {/* Verification Inputs Form (7 Cols) */}
         <div className="lg:col-span-7 glass p-6 space-y-6">
           <form onSubmit={handleExecuteVerification} className="space-y-6">
+            <div className="flex items-center gap-1 bg-slate-900/60 p-1 rounded-xl border border-slate-800 w-fit text-xs">
+              {[
+                ['detached', 'Document + .sig'],
+                ['pdf', 'Signed PDF'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setMode(value);
+                    setVerifyResult(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
+                    mode === value ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {/* 1. Document Upload */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                1. Original Document
+                {mode === 'pdf' ? '1. Signed PDF' : '1. Original Document'}
               </label>
               <FileDrop
                 onFileSelect={(f) => {
@@ -208,9 +232,13 @@ export default function VerifyDocument() {
                   setIsTampered(false);
                   setOriginalFileContent(null);
                 }}
-                accept="*/*"
+                accept={mode === 'pdf' ? '.pdf,application/pdf' : '*/*'}
                 maxSizeMb={10}
-                helperText="Upload original file that was signed"
+                helperText={
+                  mode === 'pdf'
+                    ? 'Upload a PDF signed by KeyBridge; the signature and signer certificate are inside it'
+                    : 'Upload original file that was signed'
+                }
               />
             </div>
 
@@ -223,6 +251,8 @@ export default function VerifyDocument() {
               />
             )}
 
+            {mode === 'detached' && (
+            <>
             {/* 3. Signature File Upload */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
@@ -285,6 +315,8 @@ export default function VerifyDocument() {
                 />
               )}
             </div>
+            </>
+            )}
 
             <div className="flex items-center gap-3">
               <Button
@@ -293,7 +325,7 @@ export default function VerifyDocument() {
                 size="lg"
                 icon={FileCheck2}
                 loading={isVerifying}
-                disabled={!docFile || !sigFile}
+                disabled={!docFile || (mode === 'detached' && !sigFile)}
                 className="flex-1"
               >
                 Execute 5-Stage Verification
