@@ -8,6 +8,7 @@ import {
   FileSignature,
   FileCheck2,
   GitPullRequest,
+  ClipboardList,
   History,
   Users,
   ChevronLeft,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { path: '/sign', label: 'Sign Document', icon: FileSignature },
   { path: '/verify', label: 'Verify Signature', icon: FileCheck2 },
   { path: '/requests', label: 'Service Requests', icon: GitPullRequest },
+  { path: '/dsc', label: 'DSC Applications', icon: ClipboardList },
   { path: '/audit', label: 'Audit Logs', icon: History, roles: ['ADMIN', 'AUDITOR'] },
   { path: '/users', label: 'Users', icon: Users, roles: ['ADMIN'] },
 ];

@@ -20,8 +20,12 @@ export default function NotificationDrawer({ isOpen, onClose }) {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/dashboard');
+      const [res, remRes] = await Promise.all([
+        api.get('/dashboard'),
+        api.get('/dsc-applications/reminders'),
+      ]);
       const stats = res.data || {};
+      const reminders = remRes.data || [];
       const items = [];
 
       if (user?.role === 'ADMIN' && stats.pendingRequests > 0) {
@@ -45,6 +49,18 @@ export default function NotificationDrawer({ isOpen, onClose }) {
           icon: Clock,
           color: 'amber',
           path: '/certificates',
+        });
+      }
+
+      if (reminders.length > 0) {
+        items.push({
+          id: 'dsc-renewal',
+          type: 'dsc',
+          title: `${reminders.length} DSC(s) Due for Renewal`,
+          desc: 'Issued digital signature certificates expiring within 30 days, or already expired.',
+          icon: Clock,
+          color: 'amber',
+          path: '/dsc',
         });
       }
 

@@ -17,6 +17,8 @@ import VerifyDocument from './pages/VerifyDocument';
 import Requests from './pages/Requests';
 import AuditLogs from './pages/AuditLogs';
 import Users from './pages/Users';
+import DscApplications from './pages/DscApplications';
+import DscApplicationDetail from './pages/DscApplicationDetail';
 
 export default function App() {
   return (
@@ -53,6 +55,8 @@ export default function App() {
                 <Route path="sign" element={<SignDocument />} />
                 <Route path="verify" element={<VerifyDocument />} />
                 <Route path="requests" element={<Requests />} />
+                <Route path="dsc" element={<DscApplications />} />
+                <Route path="dsc/:id" element={<DscApplicationDetail />} />
                 <Route
                   path="audit"
                   element={
