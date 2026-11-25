@@ -78,7 +78,7 @@ export default function NotificationDrawer({ isOpen, onClose }) {
   };
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="System Notifications & Alerts">
+    <Drawer open={isOpen} onClose={onClose} title="System Notifications & Alerts">
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-12 text-slate-500 text-xs">Checking alerts...</div>
