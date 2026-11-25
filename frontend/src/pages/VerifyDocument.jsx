@@ -18,6 +18,7 @@ import TamperDemoButton from '../components/crypto/TamperDemoButton';
 import DataTable from '../components/ui/DataTable';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { subjectCn } from '../lib/dn';
 
@@ -30,6 +31,10 @@ export default function VerifyDocument() {
   const [useExistingCert, setUseExistingCert] = useState(true);
   // 'detached': document + .sig + certificate. 'pdf': a PDF that carries its own signature and certificate.
   const [mode, setMode] = useState('detached');
+
+  // Verification logs are ADMIN/AUDITOR only (GET /verifications), so a USER doesn't request or see them.
+  const { user } = useAuth();
+  const canSeeLogs = user?.role === 'ADMIN' || user?.role === 'AUDITOR';
 
   // Tamper demo state
   const [isTampered, setIsTampered] = useState(false);
@@ -47,10 +52,9 @@ export default function VerifyDocument() {
 
   const loadPrerequisites = async () => {
     try {
-      // Verification logs are ADMIN/AUDITOR only; a USER still needs the certificate list.
       const [certRes, histRes] = await Promise.allSettled([
         api.get('/certs'),
-        api.get('/verifications'),
+        canSeeLogs ? api.get('/verifications') : Promise.resolve({ data: [] }),
       ]);
       const certList = certRes.status === 'fulfilled' ? certRes.value.data || [] : [];
       setExistingCerts(certList);
@@ -363,6 +367,7 @@ export default function VerifyDocument() {
       )}
 
       {/* Verification History Table */}
+      {canSeeLogs && (
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-slate-100">Recent Verification Logs</h3>
         <DataTable
@@ -372,6 +377,7 @@ export default function VerifyDocument() {
           searchPlaceholder="Search verification logs..."
         />
       </div>
+      )}
     </div>
   );
 }

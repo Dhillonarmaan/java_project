@@ -14,7 +14,8 @@ export default function AuditLogs() {
 
   const fetchLogs = async () => {
     try {
-      const res = await api.get('/audit');
+      // The newest 100 entries (the API's maximum page size); the table pages and searches them.
+      const res = await api.get('/audit?size=100');
       setLogs(res.data?.content || res.data || []);
     } catch (err) {
       console.error('Failed to fetch audit trail', err);

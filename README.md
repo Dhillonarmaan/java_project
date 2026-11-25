@@ -169,7 +169,7 @@ curl -s localhost:8080/api/dsc-applications -H "Authorization: Bearer $TOKEN" -H
 
 **G. Audit trail (auditor)**
 1. Log in as `auditor@keybridge.com` / `Audit@123` → **Audit Logs**.
-2. Rows show `DSC_APPLY`, `DSC_DOCUMENT_UPDATE`, `DSC_STATUS_UPDATE`, `PDF_SIGN`, `PDF_VERIFY`, `CERTIFICATE_REVOKE` with user and IP. No row contains a PIN or a key.
+2. The newest entries come first, 10 per page. Type an action into the search box to filter, e.g. `PDF_SIGN`, `CERTIFICATE_REVOKE`, `DSC_STATUS_UPDATE`. Each row shows the user and IP, and expands to show the recorded arguments. No row contains a PIN or a key.
 
 **H. Optional: PKCS#11 on SoftHSM**
 This needs `brew install softhsm` and `PKCS11_LIBRARY` set before starting the backend. Run `sh scripts/softhsm-init.sh` and note the slot. As admin, open **Tokens** → create a token with key storage *PKCS#11* and that slot → **Certificates** → **Issue Test Certificate** onto it, entering the token PIN (`123456`). Signing with that certificate then asks for the PIN. The automated SoftHSM tests cover issuing, file signing, PDF signing and wrong-PIN rejection on a real token.
