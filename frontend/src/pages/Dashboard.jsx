@@ -100,14 +100,16 @@ export default function Dashboard() {
           >
             Verify Signature
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={FileSignature}
-            onClick={() => navigate('/sign')}
-          >
-            Sign Document
-          </Button>
+          {user?.role !== 'AUDITOR' && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={FileSignature}
+              onClick={() => navigate('/sign')}
+            >
+              Sign Document
+            </Button>
+          )}
           {user?.role === 'ADMIN' && (
             <Button
               variant="outline"

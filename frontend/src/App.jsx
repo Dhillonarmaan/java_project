@@ -52,7 +52,14 @@ export default function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="certificates" element={<Certificates />} />
                 <Route path="tokens" element={<Tokens />} />
-                <Route path="sign" element={<SignDocument />} />
+                <Route
+                  path="sign"
+                  element={
+                    <ProtectedRoute roles={['ADMIN', 'USER']}>
+                      <SignDocument />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="verify" element={<VerifyDocument />} />
                 <Route path="requests" element={<Requests />} />
                 <Route path="dsc" element={<DscApplications />} />
@@ -60,7 +67,7 @@ export default function App() {
                 <Route
                   path="audit"
                   element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'AUDITOR']}>
+                    <ProtectedRoute roles={['ADMIN', 'AUDITOR']}>
                       <AuditLogs />
                     </ProtectedRoute>
                   }
@@ -68,7 +75,7 @@ export default function App() {
                 <Route
                   path="users"
                   element={
-                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                    <ProtectedRoute roles={['ADMIN']}>
                       <Users />
                     </ProtectedRoute>
                   }

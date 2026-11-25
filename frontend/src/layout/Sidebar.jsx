@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/certificates', label: 'Certificates', icon: Shield },
   { path: '/tokens', label: 'Tokens', icon: KeyRound },
-  { path: '/sign', label: 'Sign Document', icon: FileSignature },
+  { path: '/sign', label: 'Sign Document', icon: FileSignature, roles: ['ADMIN', 'USER'] },
   { path: '/verify', label: 'Verify Signature', icon: FileCheck2 },
   { path: '/requests', label: 'Service Requests', icon: GitPullRequest },
   { path: '/dsc', label: 'DSC Applications', icon: ClipboardList },
