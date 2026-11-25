@@ -222,4 +222,4 @@ frontend/src/
   layout/       AppShell, Sidebar, Topbar, CommandPalette, NotificationDrawer
 ```
 
-`PROJECT_UNDERSTANDING.md` has the full specification (RBAC matrix, schema, flows). `CLAUDE.md` has notes for working on the code.
+`docs/CODE_WALKTHROUGH.md` walks through the code flow by flow (sign, verify, tamper, PDF, security rules) with file:line references. `PROJECT_UNDERSTANDING.md` has the full specification (RBAC matrix, schema, flows). `CLAUDE.md` has notes for working on the code.
