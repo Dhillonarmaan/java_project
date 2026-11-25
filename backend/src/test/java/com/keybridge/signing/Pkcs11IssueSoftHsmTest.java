@@ -19,6 +19,7 @@ import com.keybridge.repository.VerificationLogRepository;
 import com.keybridge.service.CertificateParserService;
 import com.keybridge.service.CertificateService;
 import com.keybridge.service.CryptoService;
+import com.keybridge.service.PdfSigningService;
 import com.keybridge.service.SigningService;
 import com.keybridge.service.TestCaService;
 import com.keybridge.service.VerificationService;
@@ -77,6 +78,7 @@ class Pkcs11IssueSoftHsmTest {
     private TestCaService ca;
     private CertificateService certificateService;
     private SigningService signingService;
+    private PdfSigningService pdfSigningService;
     private VerificationService verificationService;
 
     /** A separate SunPKCS11 instance for looking at the device, as an outside tool would. */
@@ -102,8 +104,9 @@ class Pkcs11IssueSoftHsmTest {
         ca.ensureRoot();
 
         certificateService = new CertificateService(certs, users, tokens, ca, parser, new Pkcs11Enroller(slots));
-        signingService = new SigningService(certs, mock(SignedDocumentRepository.class), crypto,
-                new SigningProviderRegistry(List.of(new Pkcs11SigningProvider(crypto, slots))));
+        SigningProviderRegistry registry = new SigningProviderRegistry(List.of(new Pkcs11SigningProvider(crypto, slots)));
+        signingService = new SigningService(certs, mock(SignedDocumentRepository.class), crypto, registry);
+        pdfSigningService = new PdfSigningService(signingService, registry, mock(SignedDocumentRepository.class), parser, ca, crypto);
         verificationService = new VerificationService(crypto, parser, ca, certs, mock(VerificationLogRepository.class));
 
         token.setId(10L);
@@ -242,6 +245,28 @@ class Pkcs11IssueSoftHsmTest {
             if (Files.isExecutable(candidate)) return candidate.toString();
         }
         return null;
+    }
+
+    @Test
+    void pdfSignedOnTheDeviceVerifies() throws Exception {
+        when(certs.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+        issue(PIN);
+
+        java.io.ByteArrayOutputStream pdf = new java.io.ByteArrayOutputStream();
+        try (var doc = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            doc.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            doc.save(pdf);
+        }
+        PdfSigningService.SignedPdf signed = pdfSigningService.sign(77L,
+                new MockMultipartFile("file", "contract.pdf", "application/pdf", pdf.toByteArray()), alice, new SigningPin(PIN));
+
+        VerifyResponse res = verificationService.verifyPdf(
+                new MockMultipartFile("file", "contract-signed.pdf", "application/pdf", signed.content()), alice);
+        assertEquals(VerifyResult.VALID, res.result(), res.reason());
+
+        BadRequestException e = assertThrows(BadRequestException.class, () -> pdfSigningService.sign(77L,
+                new MockMultipartFile("file", "contract.pdf", "application/pdf", pdf.toByteArray()), alice, new SigningPin(PIN + "9")));
+        assertEquals("Invalid PIN", e.getMessage());
     }
 
     @Test

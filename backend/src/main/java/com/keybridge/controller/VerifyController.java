@@ -71,6 +71,14 @@ public class VerifyController {
         return ResponseEntity.ok(verificationService.verify(targetFile, sig, certBytes, targetCertId, currentUser));
     }
 
+    /** Verifies the signature embedded in a PDF; the signer certificate is read from the signature. */
+    @PostMapping("/verify/pdf")
+    @Audited("PDF_VERIFY")
+    public ResponseEntity<VerifyResponse> verifyPdf(@RequestParam("file") MultipartFile file) {
+        User currentUser = authService.getCurrentUserEntity();
+        return ResponseEntity.ok(verificationService.verifyPdf(file, currentUser));
+    }
+
     @GetMapping("/verifications")
     @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
     public ResponseEntity<List<VerificationLogResponse>> listVerifications() {

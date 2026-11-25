@@ -23,6 +23,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <bouncycastle.version>1.78.1</bouncycastle.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <pdfbox.version>3.0.3</pdfbox.version>
     </properties>
 
     <dependencies>
@@ -84,6 +85,13 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- PDF signing and verification -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
         </dependency>
 
         <!-- Testing -->

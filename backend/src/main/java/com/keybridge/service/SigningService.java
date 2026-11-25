@@ -47,16 +47,7 @@ public class SigningService {
             throw new BadRequestException("File to sign cannot be empty");
         }
 
-        Certificate cert = certificateRepository.findById(certId)
-                .orElseThrow(() -> new NotFoundException("Certificate not found with ID: " + certId));
-
-        if (!cert.getOwner().getId().equals(current.getId()) && current.getRole() != Role.ADMIN) {
-            throw new ForbiddenException("Not your certificate");
-        }
-
-        if (cert.getStatus() == CertStatus.REVOKED || cert.getStatus() == CertStatus.EXPIRED) {
-            throw new BadRequestException("Certificate is " + cert.getStatus());
-        }
+        Certificate cert = usableCertificate(certId, current);
 
         byte[] data = file.getBytes();
         byte[] sig;
@@ -77,6 +68,21 @@ public class SigningService {
         signedDocumentRepository.save(d);
 
         return new SignResponse(d.getId(), d.getDocHash(), d.getSignatureB64(), cert.getSha256Fingerprint(), d.getFileName());
+    }
+
+    /** The certificate, if {@code current} may sign with it now: owner or ADMIN, and not revoked or expired. */
+    public Certificate usableCertificate(Long certId, User current) {
+        Certificate cert = certificateRepository.findById(certId)
+                .orElseThrow(() -> new NotFoundException("Certificate not found with ID: " + certId));
+
+        if (!cert.getOwner().getId().equals(current.getId()) && current.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("Not your certificate");
+        }
+
+        if (cert.getStatus() == CertStatus.REVOKED || cert.getStatus() == CertStatus.EXPIRED) {
+            throw new BadRequestException("Certificate is " + cert.getStatus());
+        }
+        return cert;
     }
 
     @Transactional(readOnly = true)
