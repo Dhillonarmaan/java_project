@@ -4,6 +4,7 @@ import { Shield, Key, Calendar, RotateCw, Copy, Check, Download, AlertTriangle }
 import StatusBadge from '../ui/StatusBadge';
 import Button from '../ui/Button';
 import { toast } from 'sonner';
+import { subjectCn } from '../../lib/dn';
 
 export default function CertFlipCard({ cert, onRevoke, onDownload }) {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -48,7 +49,7 @@ export default function CertFlipCard({ cert, onRevoke, onDownload }) {
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-slate-100 truncate max-w-[200px]">
-                    {cert.subjectDn || 'Unnamed Certificate'}
+                    {subjectCn(cert.subjectDn) || 'Unnamed Certificate'}
                   </h3>
                   <p className="text-xs font-mono text-slate-400">
                     SN: {cert.serialNumber ? cert.serialNumber.slice(0, 16) + '...' : '—'}

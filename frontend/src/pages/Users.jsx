@@ -14,7 +14,6 @@ export default function Users() {
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
@@ -43,15 +42,13 @@ export default function Users() {
     setSubmitting(true);
     try {
       await api.post('/users', {
-        username,
+        name: fullName,
         email,
-        fullName,
         password,
         role,
       });
-      toast.success(`User ${username} created successfully!`);
+      toast.success(`User ${fullName} created successfully!`);
       setModalOpen(false);
-      setUsername('');
       setEmail('');
       setFullName('');
       setPassword('');
@@ -79,14 +76,14 @@ export default function Users() {
   const columns = [
     {
       header: 'Operator',
-      field: 'username',
+      field: 'name',
       render: (val, row) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 font-bold flex items-center justify-center text-xs">
             {val?.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <p className="font-semibold text-slate-100">{row.fullName || val}</p>
+            <p className="font-semibold text-slate-100">{val}</p>
             <p className="text-xs text-slate-400 font-mono">{row.email}</p>
           </div>
         </div>
@@ -157,7 +154,7 @@ export default function Users() {
         columns={columns}
         data={users}
         loading={loading}
-        searchKeys={['username', 'email', 'fullName', 'role']}
+        searchKeys={['name', 'email', 'role']}
         searchPlaceholder="Search users by name, email, or role..."
       />
 
@@ -171,24 +168,11 @@ export default function Users() {
         <form onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              Username *
+              Full Name *
             </label>
             <input
               type="text"
               required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. jdoe"
-              className="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-indigo-500/80 font-mono"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              Full Name
-            </label>
-            <input
-              type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="e.g. John Doe"

@@ -20,20 +20,15 @@ export default function NotificationDrawer({ isOpen, onClose }) {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      // 1. Fetch dashboard stats & timeline
-      const [dashRes, reqRes] = await Promise.allSettled([
-        api.get('/dashboard'),
-        user?.role === 'ADMIN' ? api.get('/requests?status=PENDING') : Promise.resolve({ data: [] }),
-      ]);
-
+      const res = await api.get('/dashboard');
+      const stats = res.data || {};
       const items = [];
 
-      // Check pending requests
-      if (reqRes.status === 'fulfilled' && Array.isArray(reqRes.value.data) && reqRes.value.data.length > 0) {
+      if (user?.role === 'ADMIN' && stats.pendingRequests > 0) {
         items.push({
           id: 'req-pending',
           type: 'request',
-          title: `${reqRes.value.data.length} Service Request(s) Pending Review`,
+          title: `${stats.pendingRequests} Service Request(s) Pending Review`,
           desc: 'Action required: Review certificate renewal/revocation or token allocation.',
           icon: GitPullRequest,
           color: 'indigo',
@@ -41,20 +36,16 @@ export default function NotificationDrawer({ isOpen, onClose }) {
         });
       }
 
-      // Check expiring certs count
-      if (dashRes.status === 'fulfilled') {
-        const stats = dashRes.value.data;
-        if (stats.expiringCount > 0) {
-          items.push({
-            id: 'cert-expiring',
-            type: 'cert',
-            title: `${stats.expiringCount} Certificate(s) Expiring Soon`,
-            desc: 'Certificates expiring within 30 days require renewal or reissuance.',
-            icon: Clock,
-            color: 'amber',
-            path: '/certificates',
-          });
-        }
+      if (stats.expiring > 0) {
+        items.push({
+          id: 'cert-expiring',
+          type: 'cert',
+          title: `${stats.expiring} Certificate(s) Expiring Soon`,
+          desc: 'Certificates expiring within 30 days require renewal or reissuance.',
+          icon: Clock,
+          color: 'amber',
+          path: '/certificates',
+        });
       }
 
       setNotifications(items);

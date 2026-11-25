@@ -78,7 +78,7 @@ export default function VerifyResultCard({ result }) {
     border: 'border-slate-700',
     glow: 'shadow-slate-500/10',
     title: result?.result || 'Verification Completed',
-    desc: result?.failureReason || 'Verification check process has concluded.',
+    desc: result?.reason || 'Verification check process has concluded.',
     Icon: HelpCircle,
     iconColor: 'text-slate-400',
   };

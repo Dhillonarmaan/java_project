@@ -131,11 +131,11 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-xs shrink-0">
-              {user?.username ? user.username.slice(0, 2).toUpperCase() : 'U'}
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
             </div>
             {!collapsed && (
               <div className="overflow-hidden leading-tight">
-                <p className="text-xs font-semibold text-slate-200 truncate">{user?.fullName || user?.username}</p>
+                <p className="text-xs font-semibold text-slate-200 truncate">{user?.name || user?.email}</p>
                 <p className="text-[10px] text-indigo-400 font-mono">{user?.role}</p>
               </div>
             )}

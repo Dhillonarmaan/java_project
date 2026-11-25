@@ -19,6 +19,7 @@ import Modal from '../components/ui/Modal';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { subjectCn } from '../lib/dn';
 
 export default function Certificates() {
   const [certs, setCerts] = useState([]);
@@ -176,7 +177,7 @@ export default function Certificates() {
         <div className="flex items-center gap-2.5">
           <Shield className="w-4 h-4 text-indigo-400 shrink-0" />
           <div className="min-w-0">
-            <span className="font-semibold text-slate-100 truncate block">{val}</span>
+            <span className="font-semibold text-slate-100 truncate block" title={val}>{subjectCn(val)}</span>
             <span className="text-[10px] text-slate-400 font-mono">SN: {row.serialNumber?.slice(0, 16)}...</span>
           </div>
         </div>
@@ -474,7 +475,7 @@ export default function Certificates() {
         <form onSubmit={handleRevokeSubmit} className="space-y-4">
           <p className="text-xs text-slate-300">
             Are you sure you want to revoke certificate for{' '}
-            <span className="font-bold text-slate-100">{selectedCert?.subjectDn}</span>? This action is irrevocable and will immediately cause signature verifications to fail.
+            <span className="font-bold text-slate-100">{subjectCn(selectedCert?.subjectDn)}</span>? This action is irrevocable and will immediately cause signature verifications to fail.
           </p>
 
           <div>

@@ -19,6 +19,7 @@ import DataTable from '../components/ui/DataTable';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../api/axios';
 import { toast } from 'sonner';
+import { subjectCn } from '../lib/dn';
 
 export default function VerifyDocument() {
   const [docFile, setDocFile] = useState(null);
@@ -159,14 +160,19 @@ export default function VerifyDocument() {
       render: (val) => <StatusBadge status={val} size="sm" />,
     },
     {
-      header: 'Signer Common Name',
-      field: 'signerSubject',
-      render: (val) => <span className="font-semibold text-slate-100 truncate max-w-[200px] block">{val}</span>,
+      header: 'Document',
+      field: 'fileName',
+      render: (val) => <span className="font-semibold text-slate-100 truncate max-w-[200px] block">{val || '—'}</span>,
     },
     {
-      header: 'Certificate Serial',
-      field: 'certificateSerialNumber',
-      render: (val) => <span className="font-mono text-xs text-slate-400 truncate max-w-[140px] block">{val || '—'}</span>,
+      header: 'Verified By',
+      field: 'verifiedByName',
+      render: (val) => <span className="text-xs text-slate-300 truncate max-w-[160px] block">{val || '—'}</span>,
+    },
+    {
+      header: 'Reason',
+      field: 'reason',
+      render: (val) => <span className="text-xs text-slate-400 truncate max-w-[220px] block">{val || '—'}</span>,
     },
     {
       header: 'Verified At',
@@ -266,7 +272,7 @@ export default function VerifyDocument() {
                 >
                   {existingCerts.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.subjectDn || c.subject} (SN: {(c.serialNumber || c.serialHex || '').slice(0, 14)}...) - {c.status}
+                      {subjectCn(c.subjectDn || c.subject)} (SN: {(c.serialNumber || c.serialHex || '').slice(0, 14)}...) - {c.status}
                     </option>
                   ))}
                 </select>
@@ -330,7 +336,7 @@ export default function VerifyDocument() {
         <DataTable
           columns={historyColumns}
           data={history}
-          searchKeys={['signerSubject', 'result', 'certificateSerialNumber']}
+          searchKeys={['fileName', 'result', 'verifiedByName', 'reason']}
           searchPlaceholder="Search verification logs..."
         />
       </div>

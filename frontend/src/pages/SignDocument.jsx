@@ -17,6 +17,7 @@ import SigningProgress from '../components/crypto/SigningProgress';
 import DataTable from '../components/ui/DataTable';
 import api from '../api/axios';
 import { toast } from 'sonner';
+import { subjectCn } from '../lib/dn';
 
 export default function SignDocument() {
   const [certs, setCerts] = useState([]);
@@ -159,7 +160,7 @@ export default function SignDocument() {
       field: 'certSubject',
       render: (val, row) => (
         <span className="text-xs text-slate-300 truncate max-w-[180px] block">
-          {val || row?.certificateSubject || 'Certificate'}
+          {subjectCn(val || row?.certificateSubject) || 'Certificate'}
         </span>
       ),
     },
@@ -212,7 +213,7 @@ export default function SignDocument() {
                           <div className="flex items-center gap-3">
                             <Shield className={`w-4 h-4 ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`} />
                             <div>
-                              <p className="text-xs font-semibold text-slate-200">{c.subjectDn || c.subject}</p>
+                              <p className="text-xs font-semibold text-slate-200">{subjectCn(c.subjectDn || c.subject)}</p>
                               <p className="text-[10px] text-slate-400 font-mono">
                                 SN: {(c.serialNumber || c.serialHex || '').slice(0, 16)}...
                               </p>

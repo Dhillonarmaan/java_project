@@ -38,13 +38,15 @@ export default function CommandPalette({ isOpen, onClose }) {
       setLoading(true);
       try {
         const res = await api.get(`/search?q=${encodeURIComponent(query)}`);
-        const serverResults = (res.data || []).map((item) => ({
+        const { certificates = [], tokens = [], users = [] } = res.data || {};
+        const serverResults = [...certificates, ...tokens, ...users].map((item) => ({
           id: `${item.type}-${item.id}`,
           type: item.type,
           title: item.title,
           subtitle: item.subtitle,
-          path: item.path,
-          icon: item.type === 'CERT' ? Shield : item.type === 'TOKEN' ? KeyRound : FileSignature,
+          // There is no per-certificate route; open the registry instead.
+          path: item.type === 'Certificate' ? '/certificates' : item.url,
+          icon: item.type === 'Certificate' ? Shield : item.type === 'Token' ? KeyRound : Users,
         }));
         setResults(serverResults);
         setSelectedIndex(0);

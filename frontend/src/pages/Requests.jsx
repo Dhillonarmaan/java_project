@@ -17,6 +17,7 @@ import Modal from '../components/ui/Modal';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { subjectCn } from '../lib/dn';
 
 const COLUMNS = [
   { id: 'PENDING', label: 'Pending Review', color: 'indigo', border: 'border-indigo-500/30' },
@@ -29,29 +30,26 @@ export default function Requests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [certs, setCerts] = useState([]);
-  const [tokens, setTokens] = useState([]);
 
   // Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [requestType, setRequestType] = useState('RENEW_CERT');
   const [targetCertId, setTargetCertId] = useState('');
-  const [targetTokenId, setTargetTokenId] = useState('');
   const [comments, setComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { user } = useAuth();
+  const needsCert = requestType === 'RENEW_CERT' || requestType === 'REVOKE_CERT';
 
   const fetchRequestsAndData = async () => {
     setLoading(true);
     try {
-      const [reqRes, certRes, tknRes] = await Promise.all([
+      const [reqRes, certRes] = await Promise.all([
         api.get('/requests'),
         api.get('/certs'),
-        api.get('/tokens'),
       ]);
       setRequests(reqRes.data || []);
       setCerts(certRes.data || []);
-      setTokens(tknRes.data || []);
     } catch (err) {
       console.error('Failed to fetch requests', err);
       toast.error('Failed to load service requests');
@@ -70,9 +68,8 @@ export default function Requests() {
     try {
       await api.post('/requests', {
         type: requestType,
-        targetCertificateId: targetCertId ? parseInt(targetCertId, 10) : null,
-        targetTokenId: targetTokenId ? parseInt(targetTokenId, 10) : null,
-        comments,
+        certId: needsCert ? parseInt(targetCertId, 10) : null,
+        remarks: comments,
       });
       toast.success('Service request submitted successfully');
       setCreateModalOpen(false);
@@ -89,7 +86,7 @@ export default function Requests() {
     try {
       await api.put(`/requests/${requestId}/status`, {
         status: newStatus,
-        reviewerNotes: `Transitioned to ${newStatus} by ${user?.username || 'Operator'}`,
+        adminNote: `Transitioned to ${newStatus} by ${user?.name || 'Operator'}`,
       });
       toast.success(`Request status updated to ${newStatus}`);
       fetchRequestsAndData();
@@ -166,11 +163,17 @@ export default function Requests() {
 
                       <div>
                         <p className="text-xs font-semibold text-slate-200">
-                          {req.requesterFullName || req.requesterEmail}
+                          {req.userName || req.userEmail}
                         </p>
+                        {req.certId && (
+                          <p className="text-[10px] text-slate-500 font-mono">Certificate #{req.certId}</p>
+                        )}
                         <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                          {req.comments || 'No description provided'}
+                          {req.remarks || 'No description provided'}
                         </p>
+                        {req.adminNote && (
+                          <p className="text-[10px] text-slate-500 mt-1 italic">{req.adminNote}</p>
+                        )}
                       </div>
 
                       {/* State Transition Actions for Admin */}
@@ -251,12 +254,13 @@ export default function Requests() {
             </select>
           </div>
 
-          {(requestType === 'RENEW_CERT' || requestType === 'REVOKE_CERT') && (
+          {needsCert && (
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                 Target Certificate
               </label>
               <select
+                required
                 value={targetCertId}
                 onChange={(e) => setTargetCertId(e.target.value)}
                 className="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-indigo-500/80"
@@ -264,31 +268,18 @@ export default function Requests() {
                 <option value="">-- Choose Certificate --</option>
                 {certs.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.subjectDn} ({c.status})
+                    {subjectCn(c.subjectDn)} ({c.status})
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {(requestType === 'NEW_TOKEN' || requestType === 'LOST_TOKEN') && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                Target Token (Optional)
-              </label>
-              <select
-                value={targetTokenId}
-                onChange={(e) => setTargetTokenId(e.target.value)}
-                className="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-indigo-500/80"
-              >
-                <option value="">-- Choose Token --</option>
-                {tokens.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.serialNo} ({t.label}) - {t.status}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {requestType === 'NEW_TOKEN' && (
+            <p className="text-xs text-slate-400">On completion, the next available token in the pool is assigned to you.</p>
+          )}
+          {requestType === 'LOST_TOKEN' && (
+            <p className="text-xs text-slate-400">On completion, all your tokens are marked LOST and their certificates revoked.</p>
           )}
 
           <div>

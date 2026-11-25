@@ -67,10 +67,10 @@ export default function Topbar({ onOpenCommand, onOpenNotifications }) {
         {/* User Info & Avatar */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-slate-800">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-xs text-white shadow-md shadow-indigo-500/20">
-            {user?.username ? user.username.charAt(0).toUpperCase() : 'U'}
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
           </div>
           <div className="hidden sm:block text-left text-xs">
-            <p className="font-semibold text-slate-200 leading-tight">{user?.fullName || user?.username}</p>
+            <p className="font-semibold text-slate-200 leading-tight">{user?.name || user?.email}</p>
             <p className="text-[10px] text-slate-400 font-mono">{user?.role}</p>
           </div>
           <button
